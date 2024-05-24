@@ -19,7 +19,6 @@ module top_level (
     wire comp_start_signal;
     wire [3:0] vector_x, vector_y;
     wire [127:0] accumulate_result;
-    wire [7:0] pipe_reg;
 
     control_unit ctrl_u(
         .clk(clk),
@@ -72,7 +71,7 @@ module processing_element (
     always @(posedge clk) pipe_reg <= ref_data;
     always @(posedge clk) accumulate_reg <= accumulate_in;
 
-    always @(ref_data, search_data1, search_data2, mux_control, new_distance, accumulate_reg) begin
+    always @(*) begin
         diff = ref_data - (mux_control ? search_data1 : search_data2);
         diff_temp = -diff;
         if (diff < 0) diff = diff_temp;
@@ -95,7 +94,7 @@ module processing_element_end (
 
     always @(posedge clk) accumulate_reg <= accumulate_in;
 
-    always @(ref_data, search_data1, search_data2, mux_control, new_distance, accumulate_reg) begin
+    always @(*) begin
         diff = ref_data - (mux_control ? search_data1 : search_data2);
         diff_temp = -diff;
         if (diff < 0) diff = diff_temp;
@@ -127,7 +126,7 @@ module control_unit (
         else if (process_completed == 0) count <= count_temp;
     end
 
-    always @(count) begin
+    always @(*) begin
         count_temp = count + 1'b1;
         for (i = 0; i < 16; i = i + 1) begin
             new_distance[i] = (count[7:0] == i);    
@@ -170,7 +169,7 @@ module comparator (
         end
     end
 
-    always @(best_distance, accumulate_result, pe_ready, comp_start_signal) begin
+    always @(*) begin
         new_distance = 8'hFF;
         for (n = 0; n <= 15; n = n + 1) begin
             if (pe_ready[n] == 1) begin
