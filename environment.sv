@@ -1,5 +1,6 @@
 `timescale 1ns/1ps
 
+`include "transaction_class.sv"
 `include "generator.sv"
 `include "driver.sv"
 `include "monitor.sv"
