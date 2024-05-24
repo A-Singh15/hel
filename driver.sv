@@ -1,122 +1,137 @@
 `timescale 1ns/1ps
 
 class driver_class;
-    // Counter for the number of transactions
-    int transaction_count = 0;
-    
-    // Virtual interface handle
-    virtual test_interface virt_if;
-    
-    // Transaction object and mailboxes for communication
-    transaction_obj trans_obj;
-    mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox;
 
-    // Constructor: Initializes the driver with mailboxes and virtual interface
-    function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox, input virtual test_interface virt_if);
-        this.gen_to_drv_mbox = gen_to_drv_mbox;
-        this.drv_to_gen_mbox = drv_to_gen_mbox;
-        this.drv_to_scb_mbox = drv_to_scb_mbox;
-        this.virt_if = virt_if;
-        trans_obj = new();
-    endfunction : new
+  // Number of transactions processed by the driver
+  int num_transactions = 0;
 
-    // Reset task: Resets the interface signals to default values
-    task reset();
-        $display("***** [DRIVER] Reset Initiated *****");
-        virt_if.clk_block.start_signal <= 0;
-        virt_if.clk_block.ref_data <= 0;
-        virt_if.clk_block.search_data1 <= 0;
-        virt_if.clk_block.search_data2 <= 0;
-        $display("***** [DRIVER] Reset Completed *****");
-    endtask : reset
+  // Virtual interface handle
+  virtual ME_interface test_if;
 
-    // Run task: Drives transactions from generator to DUT
-    task run();
-        forever begin
-            transaction_obj trans_obj_local;
-            @(posedge virt_if.clk);
-            gen_to_drv_mbox.get(trans_obj_local);
-            virt_if.clk_block.start_signal <= trans_obj_local.start_signal;
-            virt_if.clk_block.ref_data <= trans_obj_local.ref_data;
-            virt_if.clk_block.search_data1 <= trans_obj_local.search_data1;
-            virt_if.clk_block.search_data2 <= trans_obj_local.search_data2;
-            drv_to_scb_mbox.put(trans_obj_local);
-            transaction_count++;
-        end
-    endtask : run
+  // Transaction object
+  transaction trans_obj;
 
-    // Wrap-up task: Completes the simulation upon certain conditions
-    task wrap_up();
-        wait (virt_if.clk_block.best_distance == 1);
-        @virt_if.clk_block;
-        $display("***** [DRIVER] Simulation Completion Triggered *****");
-        $finish;
-    endtask : wrap_up
+  // Mailboxes for communication between generator, driver, and scoreboard
+  mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox;
+  
+  // Constructor: Initializes mailboxes and virtual interface
+  function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox, virtual ME_interface test_if);
+    this.gen_to_drv_mbox = gen_to_drv_mbox;
+    this.drv_to_gen_mbox = drv_to_gen_mbox;
+    this.drv_to_scb_mbox = drv_to_scb_mbox;
+    this.test_if = test_if;
+    trans_obj = new();
+  endfunction : new
 
-endclass : driver_class
+  // Reset task: Initializes the interface signals to default values
+  task reset_driver();
+    $display("** [DRIVER] Reset Started **");
+    test_if.driver_cb.start <= 0;
+    test_if.driver_cb.R_mem <= 0;
+    test_if.driver_cb.S_mem1 <= 0;
+    test_if.driver_cb.S_mem2 <= 0;
+    $display("** [DRIVER] Reset Completed **");
+  endtask : reset_driver
+  
+  // Run task: Continuously processes transactions from generator
+  task run_driver();
+    forever begin
+      transaction trans_data;
+      @(posedge test_if.clk);
+      gen_to_drv_mbox.get(trans_data);
+      test_if.driver_cb.start       <= trans_data.start;
+      test_if.driver_cb.R_mem       <= trans_data.R_mem;
+      test_if.driver_cb.S_mem1      <= trans_data.S_mem1;
+      test_if.driver_cb.S_mem2      <= trans_data.S_mem2;
+      drv_to_scb_mbox.put(trans_data);
+      num_transactions++;
+    end
+  endtask : run_driver
 
-
-`timescale 1ns/1ps
-
-class driver_class;
-    
-    // Number of transactions and loop variable
-    int total_transactions, loop_index;
-
-    // Virtual interface handle
-    virtual evaluation_interface eval_if;
-
-    // Mailbox for communication from generator to driver
-    mailbox trans_mailbox;
-
-    // Constructor: Initializes the driver with virtual interface and mailbox
-    function new(virtual evaluation_interface eval_if, mailbox trans_mailbox);
-        this.eval_if = eval_if;
-        this.trans_mailbox = trans_mailbox;
-    endfunction : new
-
-    // Start task: Resets memory values before starting operations
-    task start;
-        $display("\n***** [DRIVER] Initialization Started *****");
-        wait(!eval_if.start_signal);
-        $display("\n***** [DRIVER] Default Values Set *****");
-        for(loop_index = 0; loop_index < `SEARCH_MEM_MAX; loop_index++)
-            eval_if.search_memory[loop_index] <= 0;
-        for(loop_index = 0; loop_index < `REF_MEM_MAX; loop_index++)
-            eval_if.ref_memory[loop_index] <= 0;
-        wait(eval_if.start_signal);
-        $display("\n***** [DRIVER] All Memories Initialized *****");
-    endtask : start
-
-    // Drive task: Drives transactions into DUT through the interface
-    task drive;
-        transaction_obj trans;
-        forever begin
-            trans_mailbox.get(trans);
-            $display("\n***** [DRIVER] Driving Transaction %0d *****", total_transactions);
-            eval_if.ref_memory = trans.ref_memory;  // Drive ref_memory to interface
-            eval_if.search_memory = trans.search_memory;  // Drive search_memory to interface
-            eval_if.start_signal = 1;
-            @(posedge eval_if.clk_block.clk);
-            eval_if.expected_motion_x <= trans.expected_motion_x;  // Drive Expected Motion X to interface
-            eval_if.expected_motion_y <= trans.expected_motion_y;  // Drive Expected Motion Y to interface
-            $display("\n***** [DRIVER] Packet Expected Motion X: %d and Expected Motion Y: %d *****", trans.expected_motion_x, trans.expected_motion_y);
-            wait(eval_if.process_completed == 1);  // Wait for DUT to signal completion
-            eval_if.start_signal = 0;
-            $display("\n***** [DRIVER] DUT Signaled Completion *****");
-            total_transactions++;
-            @(posedge eval_if.clk_block.clk);
-        end
-    endtask : drive
-
-    // Main task: Starts the driver and continuously drives transactions
-    task main;
-        $display("\n***** [DRIVER] Main Task Initiated *****");
-        forever begin
-            fork
-                drive();
-            join_none
-        end
-    endtask : main
+  // Wrap-up task: Completes processing when the BestDist signal is set
+  task wrap_up_driver();
+    wait (test_if.driver_cb.BestDist == 1);
+    @(posedge test_if.clk);
+    $display("** [DRIVER] BestDist is set to 1 **");
+    $display("** [DRIVER] Finishing simulation **");
+    $finish;
+  endtask : wrap_up_driver
 
 endclass : driver_class
+
+class generator_class;
+
+  // Transaction object
+  rand transaction trans_obj;
+
+  // Number of transactions to be generated
+  int trans_count = 4150;
+
+  // Mailboxes for communication between generator and driver
+  mailbox gen_to_drv_mbox, drv_to_gen_mbox;
+
+  // Event to signal end of generation
+  event generation_done;
+
+  // Constructor: Initializes mailboxes
+  function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox);
+    this.gen_to_drv_mbox = gen_to_drv_mbox;
+    this.drv_to_gen_mbox = drv_to_gen_mbox;
+  endfunction : new
+
+  // Run task: Generates transactions and sends them to the driver
+  task run_generator();
+    for(int i = 0; i < trans_count; i++) begin
+      trans_obj = new();
+      if (i < 10) begin
+        if(!trans_obj.randomize() with {start == 0;}) 
+          $fatal("Generator: Transaction randomization failed");
+      end else if (i >= 10 || i <= 4120) begin
+        if(!trans_obj.randomize() with {start == 1;}) 
+          $fatal("Generator: Transaction randomization failed");
+      end else if (i > 4120) begin
+        if(!trans_obj.randomize() with {start == 0;}) 
+          $fatal("Generator: Transaction randomization failed");
+      end 
+      gen_to_drv_mbox.put(trans_obj);
+    end
+    -> generation_done; // Triggering event to signal end of generation
+  endtask : run_generator
+
+  // Wrap-up task: Empty for now
+  task wrap_up_generator();
+  endtask : wrap_up_generator
+
+endclass : generator_class
+
+class transaction;
+
+  // Signals for transactions
+  rand logic start;
+  rand logic [7:0] R_mem, S_mem1, S_mem2;
+  logic completed;
+  logic [7:0] BestDist;
+  logic [3:0] motionX, motionY;
+  logic [7:0] AddressR;
+  logic [9:0] AddressS1, AddressS2;
+
+  // Display function for transaction details
+  function void display_trans(string name);
+    $display("**-------------------------------------------------------**");
+    $display("**   -----------   %s  ----------   **", name);
+    $display("**-------------------------------------------------------**");
+    $display("** Time        = %0d ns", $time);
+    $display("** R_mem       = %0h, S_mem1 = %0h, S_mem2 = %0h", R_mem, S_mem1, S_mem2);
+    $display("** start       = %0d", start);
+    $display("** completed   = %0d", completed);
+    $display("** AddressR    = %0h", AddressR);
+    $display("** AddressS1   = %0h", AddressS1);
+    $display("** AddressS2   = %0h", AddressS2);
+    $display("** BestDist    = %0h", BestDist);
+    $display("** motionX     = %0h", motionX);
+    $display("** motionY     = %0h", motionY);
+    $display("**-------------------------------------------------------**");
+  endfunction
+
+endclass : transaction
+
