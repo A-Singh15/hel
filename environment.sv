@@ -11,8 +11,8 @@ class environment;
     // Instances of Generator, Driver, Monitor, and Scoreboard
     virtual consolidated_if virt_if; // Virtual interface declaration
     virtual generator gen_inst; // Declare generator as a virtual interface
-    driver drv_inst;
-    monitor mon_inst;
+    virtual driver drv_inst; // Declare driver as a virtual interface
+    virtual monitor mon_inst; // Declare monitor as a virtual interface
     scoreboard scb_inst;
     coverage_evaluation eval_inst; // Instance of the coverage evaluation class
     
@@ -32,8 +32,7 @@ class environment;
         drv_to_scb = new();
         mon_to_eval = new();
         
-        // Create instances of the generator, driver, monitor, and scoreboard
-        // Ensure generator is correctly connected with virtual interface
+        // Create instances of the driver, monitor, and scoreboard
         drv_inst = new(gen_to_drv, drv_to_gen, drv_to_scb, virt_if);
         scb_inst = new(drv_to_scb, mon_to_scb);
         mon_inst = new(mon_to_scb, virt_if);
@@ -66,8 +65,8 @@ endclass : environment
 class simulation_environment;
     // Instances of Generator, Driver, Monitor, Scoreboard, and Analysis
     virtual generator gen_inst; // Declare generator as a virtual interface
-    driver drv_inst;
-    monitor mon_inst;
+    virtual driver drv_inst; // Declare driver as a virtual interface
+    virtual monitor mon_inst; // Declare monitor as a virtual interface
     scoreboard scb_inst;
     coverage_evaluation eval_inst;
     
