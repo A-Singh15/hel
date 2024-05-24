@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
 
-`include "interfaces.sv"
-`include "generator.sv"
-`include "driver.sv"
-`include "monitor.sv"
-`include "scoreboard.sv"
+`include "interfaces.sv" // Ensure this includes all necessary interfaces
+`include "generator.sv" // Ensure generator.sv defines the generator interface
+`include "driver.sv" // Ensure driver.sv defines the driver interface
+`include "monitor.sv" // Ensure monitor.sv defines the monitor interface
+`include "scoreboard.sv" // Ensure scoreboard.sv defines the scoreboard interface
 `include "evaluation.sv"
 
 class environment;
