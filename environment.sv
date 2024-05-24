@@ -9,17 +9,15 @@
 
 class environment;
     // Instances of Generator, Driver, Monitor, and Scoreboard
-    generator   gen_inst;
-    driver      drv_inst;
-    monitor     mon_inst;
-    scoreboard  scb_inst;
+    virtual consolidated_if virt_if; // Virtual interface declaration
+    generator gen_inst; // Generator instance declaration
+    driver drv_inst;
+    monitor mon_inst;
+    scoreboard scb_inst;
     coverage_evaluation eval_inst; // Instance of the coverage evaluation class
     
     // Mailboxes for communication between components
-    mailbox     gen_to_drv, drv_to_gen, mon_to_scb, drv_to_scb, mon_to_eval;
-    
-    // Virtual interface to the test
-    virtual consolidated_if virt_if;
+    mailbox gen_to_drv, drv_to_gen, mon_to_scb, drv_to_scb, mon_to_eval;
 
     // Constructor to initialize the environment with a virtual interface
     function new(input virtual consolidated_if virt_if);
