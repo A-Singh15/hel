@@ -59,51 +59,6 @@ class driver_class;
 
 endclass : driver_class
 
-class generator_class;
-
-  // Transaction object
-  rand virtual transaction_class trans_obj;
-
-  // Number of transactions to be generated
-  int trans_count = 4150;
-
-  // Mailboxes for communication between generator and driver
-  mailbox gen_to_drv_mbox, drv_to_gen_mbox;
-
-  // Event to signal end of generation
-  event generation_done;
-
-  // Constructor: Initializes mailboxes
-  function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox);
-    this.gen_to_drv_mbox = gen_to_drv_mbox;
-    this.drv_to_gen_mbox = drv_to_gen_mbox;
-  endfunction : new
-
-  // Run task: Generates transactions and sends them to the driver
-  task run_generator();
-    for(int i = 0; i < trans_count; i++) begin
-      trans_obj = new();
-      if (i < 10) begin
-        if(!trans_obj.randomize() with {start == 0;}) 
-          $fatal("Generator: Transaction randomization failed");
-      end else if (i >= 10 || i <= 4120) begin
-        if(!trans_obj.randomize() with {start == 1;}) 
-          $fatal("Generator: Transaction randomization failed");
-      end else if (i > 4120) begin
-        if(!trans_obj.randomize() with {start == 0;}) 
-          $fatal("Generator: Transaction randomization failed");
-      end 
-      gen_to_drv_mbox.put(trans_obj);
-    end
-    -> generation_done; // Triggering event to signal end of generation
-  endtask : run_generator
-
-  // Wrap-up task: Empty for now
-  task wrap_up_generator();
-  endtask : wrap_up_generator
-
-endclass : generator_class
-
 virtual class transaction_class;
 
   // Signals for transactions
@@ -112,7 +67,7 @@ virtual class transaction_class;
   logic completed;
   logic [7:0] BestDist;
   logic [3:0] motionX, motionY;
-  logic [7:0] AddressR;
+  logic [7:8] AddressR;
   logic [9:0] AddressS1, AddressS2;
 
   // Display function for transaction details
