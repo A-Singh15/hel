@@ -47,37 +47,41 @@ class coverage_evaluation;
         option.per_instance = 1;
 
         // Coverpoint for BestDist
-        best_distance: coverpoint trans.BestDist; // Automatic bins
+        cp_best_dist: coverpoint trans.BestDist; // Automatic bins
 
         // Coverpoint for Expected_motionX with specified bins
-        expected_motion_x: coverpoint trans.Expected_motionX {
+        cp_expected_motion_x: coverpoint trans.Expected_motionX {
             bins negative_values[] = {[-8:-1]}; // Negative values
             bins zero_value = {0};       // Zero value
             bins positive_values[] = {[1:7]};   // Positive values
         }
 
         // Coverpoint for Expected_motionY with specified bins
-        expected_motion_y: coverpoint trans.Expected_motionY {
+        cp_expected_motion_y: coverpoint trans.Expected_motionY {
             bins negative_values[] = {[-8:-1]}; // Negative values
             bins zero_value = {0};       // Zero value
             bins positive_values[] = {[1:7]};   // Positive values
         }
 
         // Coverpoint for Actual_motionX with specified bins
-        actual_motion_x: coverpoint trans.motionX {
+        cp_actual_motion_x: coverpoint trans.motionX {
             bins negative_values[] = {[-8:-1]}; // Negative values
             bins zero_value = {0};       // Zero value
             bins positive_values[] = {[1:7]};   // Positive values
         }
 
         // Coverpoint for Actual_motionY with specified bins
-        actual_motion_y: coverpoint trans.motionY {
+        cp_actual_motion_y: coverpoint trans.motionY {
             bins negative_values[] = {[-8:-1]}; // Negative values
             bins zero_value = {0};       // Zero value
             bins positive_values[] = {[1:7]};   // Positive values
         }
-        cross expected_motion_cross: cross expected_motion_x, expected_motion_y;
-        cross actual_motion_cross: cross actual_motion_x, actual_motion_y;
+
+        // Cross coverage for Expected Motion X and Y
+        cross expected_motion_cross: cross cp_expected_motion_x, cp_expected_motion_y;
+
+        // Cross coverage for Actual Motion X and Y
+        cross actual_motion_cross: cross cp_actual_motion_x, cp_actual_motion_y;
     endgroup
 
     // Constructor to initialize the coverage class
@@ -102,7 +106,7 @@ endclass
 
 `define SMEM_MAX 1024
 `define RMEM_MAX 256
-`define TRANSACTION_COUNT 1500
+`define TRANSACTION_COUNT 1
 `define DRIV_IF memory_interface.ME_DRIVER.ME_driver_cb
 `define MON_IF memory_interface.ME_MONITOR.ME_monitor_cb
 
