@@ -1,132 +1,125 @@
-
 `timescale 1ns/1ps
 
-class analysis;
+class coverage_evaluation;
 
-  // Metric for evaluation
-  real evaluation_metric;
+  // Coverage metric
+  real coverage_metric;
 
-  // Interface to memory
-  virtual analysis_interface memory_interface;
+  // Virtual interface to memory
+  virtual ME_interface memory_interface;
 
-  // Mailbox for receiving data from the monitor
-  mailbox monitor_to_analysis;
+  // Mailbox for receiving transactions from the monitor
+  mailbox monitor_to_coverage;
 
-  // Data object
-  DataObject data;
-      
-  // Group for measuring evaluation
-  covergroup analysis_group;
+  // Transaction object
+  DataObject transaction;
+
+  // Covergroup for measuring coverage
+  covergroup coverage_group;
     option.per_instance = 1;
-    
-    // Point for BestDist
-    best_distance: coverpoint data.best_distance; // Automatic bins
 
-    // Point for expected_motion_x with defined bins
-    expected_motion_x: coverpoint data.expected_motion_x {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
+    // Coverpoint for BestDist
+    best_distance: coverpoint transaction.best_distance; // Automatic bins
+
+    // Coverpoint for Expected_motionX with specified bins
+    expected_motion_x: coverpoint transaction.expected_motion_x {
+      bins negative_values[] = {[-8:-1]}; // Negative values
+      bins zero_value = {0};       // Zero value
+      bins positive_values[] = {[1:7]};   // Positive values
     }
 
-    // Point for expected_motion_y with defined bins
-    expected_motion_y: coverpoint data.expected_motion_y {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
+    // Coverpoint for Expected_motionY with specified bins
+    expected_motion_y: coverpoint transaction.expected_motion_y {
+      bins negative_values[] = {[-8:-1]}; // Negative values
+      bins zero_value = {0};       // Zero value
+      bins positive_values[] = {[1:7]};   // Positive values
     }
 
-    // Point for actual_motion_x with defined bins
-    actual_motion_x: coverpoint data.actual_motion_x {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
+    // Coverpoint for Actual_motionX with specified bins
+    actual_motion_x: coverpoint transaction.motion_x {
+      bins negative_values[] = {[-8:-1]}; // Negative values
+      bins zero_value = {0};       // Zero value
+      bins positive_values[] = {[1:7]};   // Positive values
     }
 
-    // Point for actual_motion_y with defined bins
-    actual_motion_y: coverpoint data.actual_motion_y {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
+    // Coverpoint for Actual_motionY with specified bins
+    actual_motion_y: coverpoint transaction.motion_y {
+      bins negative_values[] = {[-8:-1]}; // Negative values
+      bins zero_value = {0};       // Zero value
+      bins positive_values[] = {[1:7]};   // Positive values
     }
-    cross_exp : cross expected_motion_x, expected_motion_y;
-    cross_act : cross actual_motion_x, actual_motion_y;
+    cross expected_motion_cross: cross expected_motion_x, expected_motion_y;
+    cross actual_motion_cross: cross actual_motion_x, actual_motion_y;
   endgroup
   
-  // Constructor for analysis class
-  function new(virtual analysis_interface memory_interface, mailbox monitor_to_analysis);
+  // Constructor to initialize the coverage class
+  function new(virtual ME_interface memory_interface, mailbox monitor_to_coverage);
     this.memory_interface = memory_interface;
-    this.monitor_to_analysis = monitor_to_analysis;
-    analysis_group = new();
+    this.monitor_to_coverage = monitor_to_coverage;
+    coverage_group = new();
   endfunction
    
-  // Task to sample evaluation continuously
-  task sample_evaluation();
+  // Task to continuously sample coverage
+  task evaluate_coverage();
     begin
       forever begin
-        monitor_to_analysis.get(data);       // Get data from the mailbox
-        analysis_group.sample();             // Sample the group
-        evaluation_metric = analysis_group.get_coverage(); // Update evaluation metric
+        monitor_to_coverage.get(transaction);        // Get a transaction from the mailbox
+        coverage_group.sample();    // Sample the covergroup
+        coverage_metric = coverage_group.get_coverage(); // Update coverage metric
       end
     end
   endtask
   
 endclass
 
+`define SMEM_MAX 1024
+`define RMEM_MAX 256
+`define TRANSACTION_COUNT 1500
+`define DRIV_IF memory_interface.ME_DRIVER.ME_driver_cb
+`define MON_IF memory_interface.ME_MONITOR.ME_monitor_cb
 
-`timescale 1ns/1ps
-
-`define MEMORY_MAX 1024
-`define REFERENCE_MAX 256
-`define DATA_COUNT 1500
-`define DRIVER_INTERFACE memory_interface.analysis_driver.driver_cb
-`define MONITOR_INTERFACE memory_interface.analysis_monitor.monitor_cb
-
-
-`timescale 1ns/1ps
-
-module assertions_module(
-    input clk, 
-    input start_signal, 
+module ME_assertions(
+    input clock, 
+    input start, 
     input [7:0] best_distance, 
     input [3:0] motion_x, 
     input [3:0] motion_y, 
-    input process_complete
+    input completed
 );
 
-  integer temp_motion_x, temp_motion_y;
+  integer tmp_motion_x, tmp_motion_y;
 
   // Convert 4-bit signed motion vectors to 5-bit signed integers
   always @(*) begin
       if (motion_x >= 8)
-          temp_motion_x = motion_x - 16;
+          tmp_motion_x = motion_x - 16;
       else
-          temp_motion_x = motion_x;
+          tmp_motion_x = motion_x;
 
       if (motion_y >= 8)
-          temp_motion_y = motion_y - 16;
+          tmp_motion_y = motion_y - 16;
       else
-          temp_motion_y = motion_y;
+          tmp_motion_y = motion_y;
   end
 
-  always @(posedge clk) begin
-    // Check 1: 'process_complete' should not be high when 'start_signal' is high
-    start_complete_check: assert property (@(posedge clk) (start_signal -> !process_complete)) else
-      $error("Check failed: start_signal -> !process_complete at time %0t", $time);
+  always @(posedge clock) begin
+    // Assertion 1: Ensure that 'completed' signal is not asserted when 'start' is high
+    assert_property: assert property (@(posedge clock) (start -> !completed)) else
+      $error("Assertion failed: start -> !completed at time %0t", $time);
 
-    // Check 2: 'process_complete' should be high when 'start_signal' is low
-    start_complete_check1: assert property (@(posedge clk) ((!start_signal && !$past(start_signal)) -> process_complete)) else
-      $error("Check failed: (!start_signal && !$past(start_signal)) -> process_complete at time %0t", $time);
+    // Assertion 2: Ensure that 'completed' signal is asserted when 'start' is low
+    assert_property2: assert property (@(posedge clock) ((!start && !$past(start)) -> completed)) else
+      $error("Assertion failed: (!start && !$past(start)) -> completed at time %0t", $time);
 
-    // Check 3: 'best_distance' should always be within 0x00 to 0xFF
-    best_distance_check: assert property (@(posedge clk) disable iff (!start_signal)
+    // Assertion 3: Ensure that 'best_distance' is always within the valid range of 0x00 to 0xFF
+    assert_property3: assert property (@(posedge clock) disable iff (!start)
       ((best_distance >= 8'h00) && (best_distance <= 8'hFF))) else
-      $error("Check failed: best_distance out of range at time %0t", $time);
+      $error("Assertion failed: best_distance out of range at time %0t", $time);
 
-    // Check 4: 'motion_x' and 'motion_y' should be valid motion vectors
-    motion_vectors_check: assert property (@(posedge clk) disable iff (!process_complete || !start_signal)
-      ((temp_motion_x >= -8) && (temp_motion_x <= 7) && (temp_motion_y >= -8) && (temp_motion_y <= 7))) else
-      $error("Check failed at time %0t: motion_x = %0d, motion_y = %0d", $time, temp_motion_x, temp_motion_y);
+    // Assertion 4: Ensure that 'motion_x' and 'motion_y' are valid motion vectors
+    assert_property4: assert property (@(posedge clock) disable iff (!completed || !start)
+      ((tmp_motion_x >= -8) && (tmp_motion_x <= 7) && (tmp_motion_y >= -8) && (tmp_motion_y <= 7))) else
+      $error("Assertion failed at time %0t: motion_x = %0d, motion_y = %0d", $time, tmp_motion_x, tmp_motion_y);
   end
 
 endmodule
