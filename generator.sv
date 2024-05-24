@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "transaction_class.sv"
 
 class generator_class;
     rand transaction_class trans;
