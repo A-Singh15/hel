@@ -3,11 +3,11 @@
 
 class driver_class;
     int num_transactions = 0;
-    virtual main_if.test intf;
+    virtual main_if test intf;
     transaction_class trans_obj;
     mailbox gen2drv, drv2gen, drv2scb;
 
-    function new(mailbox gen2drv, drv2gen, drv2scb, input virtual main_if.test intf);
+    function new(mailbox gen2drv, drv2gen, drv2scb, input virtual main_if test intf);
         this.gen2drv = gen2drv;
         this.drv2gen = drv2gen;
         this.drv2scb = drv2scb;
