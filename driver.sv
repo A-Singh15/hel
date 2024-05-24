@@ -6,7 +6,7 @@ class driver_class;
   int num_transactions = 0;
 
   // Virtual interface handle
-  virtual ME_interface test_if;
+  virtual main_if test_if;
 
   // Transaction object
   transaction_class trans_obj;
@@ -15,7 +15,7 @@ class driver_class;
   mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox;
   
   // Constructor: Initializes mailboxes and virtual interface
-  function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox, virtual ME_interface test_if);
+  function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox, virtual main_if test_if);
     this.gen_to_drv_mbox = gen_to_drv_mbox;
     this.drv_to_gen_mbox = drv_to_gen_mbox;
     this.drv_to_scb_mbox = drv_to_scb_mbox;
@@ -27,9 +27,9 @@ class driver_class;
   task reset_driver();
     $display("** [DRIVER] Reset Started **");
     test_if.driver_cb.start <= 0;
-    test_if.driver_cb.R_mem <= 0;
-    test_if.driver_cb.S_mem1 <= 0;
-    test_if.driver_cb.S_mem2 <= 0;
+    test_if.driver_cb.R <= 0;
+    test_if.driver_cb.S1 <= 0;
+    test_if.driver_cb.S2 <= 0;
     $display("** [DRIVER] Reset Completed **");
   endtask : reset_driver
   
@@ -40,9 +40,9 @@ class driver_class;
       @(posedge test_if.clk);
       gen_to_drv_mbox.get(trans_data);
       test_if.driver_cb.start       <= trans_data.start;
-      test_if.driver_cb.R_mem       <= trans_data.R_mem;
-      test_if.driver_cb.S_mem1      <= trans_data.S_mem1;
-      test_if.driver_cb.S_mem2      <= trans_data.S_mem2;
+      test_if.driver_cb.R           <= trans_data.R;
+      test_if.driver_cb.S1          <= trans_data.S1;
+      test_if.driver_cb.S2          <= trans_data.S2;
       drv_to_scb_mbox.put(trans_data);
       num_transactions++;
     end
@@ -108,7 +108,7 @@ class transaction_class;
 
   // Signals for transactions
   rand logic start;
-  rand logic [7:0] R_mem, S_mem1, S_mem2;
+  rand logic [7:0] R, S1, S2;
   logic completed;
   logic [7:0] BestDist;
   logic [3:0] motionX, motionY;
@@ -121,7 +121,7 @@ class transaction_class;
     $display("**   -----------   %s  ----------   **", name);
     $display("**-------------------------------------------------------**");
     $display("** Time        = %0d ns", $time);
-    $display("** R_mem       = %0h, S_mem1 = %0h, S_mem2 = %0h", R_mem, S_mem1, S_mem2);
+    $display("** R           = %0h, S1 = %0h, S2 = %0h", R, S1, S2);
     $display("** start       = %0d", start);
     $display("** completed   = %0d", completed);
     $display("** AddressR    = %0h", AddressR);
@@ -134,4 +134,3 @@ class transaction_class;
   endfunction
 
 endclass : transaction_class
-
