@@ -1,6 +1,5 @@
 `timescale 1ns/1ps
 
-// Define the transaction class
 class transaction;
     rand logic start;
     rand logic [7:0] R, S1, S2;
@@ -78,10 +77,10 @@ class coverage_evaluation;
         }
 
         // Cross coverage for Expected Motion X and Y
-        cross cp_expected_motion_x_y = cp_expected_motion_x, cp_expected_motion_y;
+        cp_expected_motion_x_y: cross cp_expected_motion_x, cp_expected_motion_y;
 
         // Cross coverage for Actual Motion X and Y
-        cross cp_actual_motion_x_y = cp_actual_motion_x, cp_actual_motion_y;
+        cp_actual_motion_x_y: cross cp_actual_motion_x, cp_actual_motion_y;
     endgroup
 
     // Constructor to initialize the coverage class
