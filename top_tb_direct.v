@@ -1,3 +1,10 @@
+// top_tb.v
+// ------------------------------------------------------------------
+// This is the testbench file for motion estimator.
+// Relative files: top.v main_top.v
+// Created by: Jia Huang, Da-Hsien Lin, Xu Zhou
+// 2009.5
+// ------------------------------------------------------------------
 
 `timescale 1ns/10ps
 /*module timeunit;
