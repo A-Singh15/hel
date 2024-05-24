@@ -15,8 +15,8 @@ class environment;
     virtual generator gen_inst; // Declare generator as a virtual interface
     virtual driver drv_inst; // Declare driver as a virtual interface
     virtual monitor mon_inst; // Declare monitor as a virtual interface
-    scoreboard scb_inst; // Assuming scoreboard is a class
-    coverage_evaluation eval_inst; // Instance of the coverage evaluation class
+    virtual scoreboard scb_inst; // Declare scoreboard as a virtual interface
+    coverage_evaluation eval_inst; // Assuming coverage_evaluation is a class
     
     // Mailboxes for communication between components
     mailbox gen_to_drv, drv_to_gen, mon_to_scb, drv_to_scb, mon_to_eval;
@@ -34,15 +34,14 @@ class environment;
         drv_to_scb = new();
         mon_to_eval = new();
 
-        // Create instances of the generator, driver, monitor, and scoreboard
-        // Ensure generator, driver, and monitor are correctly connected with virtual interface
-        scb_inst = new(drv_to_scb, mon_to_scb);
-        eval_inst = new(virt_if, mon_to_eval); // Instantiate the coverage evaluation class
+        // Instantiate the coverage evaluation class
+        eval_inst = new(virt_if, mon_to_eval);
     endfunction : build
 
     // Task to run the environment by running all components
     task run();
         fork
+            gen_inst.run();
             drv_inst.run();
             mon_inst.run();
             scb_inst.run();
@@ -53,6 +52,7 @@ class environment;
     // Task to wrap up the environment by wrapping up all components
     task wrap_up();
         fork
+            gen_inst.wrap_up();
             drv_inst.wrap_up();
             mon_inst.wrap_up();
             scb_inst.wrap_up();
@@ -68,16 +68,16 @@ class simulation_environment;
     virtual generator gen_inst; // Declare generator as a virtual interface
     virtual driver drv_inst; // Declare driver as a virtual interface
     virtual monitor mon_inst; // Declare monitor as a virtual interface
-    scoreboard scb_inst; // Assuming scoreboard is a class
+    virtual scoreboard scb_inst; // Declare scoreboard as a virtual interface
     coverage_evaluation eval_inst; // Assuming coverage_evaluation is a class
-    
+
     // Mailboxes for communication between components
     mailbox gen_to_drv, mon_to_scb, mon_to_eval;
-    
+
     // Events for synchronization
     event gen_done;
     event mon_done;
-    
+
     // Virtual interface handle
     virtual consolidated_if virt_mem_if;
 
@@ -87,7 +87,6 @@ class simulation_environment;
         gen_to_drv = new();
         mon_to_scb = new();
         mon_to_eval = new();
-        scb_inst = new(mon_to_scb);
         eval_inst = new(virt_mem_if, mon_to_eval);
     endfunction
 
@@ -100,6 +99,7 @@ class simulation_environment;
     // Task to run the main tasks of all components
     task run_test();
         fork
+            gen_inst.main();
             drv_inst.main();
             mon_inst.main();
             scb_inst.main();
