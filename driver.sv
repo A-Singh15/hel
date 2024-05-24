@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+`include "transaction_class.sv"
 
 class driver_class;
     int num_transactions = 0;
