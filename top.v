@@ -1,7 +1,6 @@
 `timescale 1ns/1ps
 
-/* Module For Top Level Hierarchy */
-module top_level (
+module top(
     input logic clk,
     input logic start_signal,
     output logic [7:0] best_distance,
@@ -19,20 +18,21 @@ module top_level (
     wire comp_start_signal;
     wire [3:0] vector_x, vector_y;
     wire [127:0] accumulate_result;
+    wire [7:0] pipe_reg;
 
     control_unit ctrl_u(
         .clk(clk),
-        .start(start_signal),
+        .start_signal(start_signal),
         .mux_control(mux_control),
         .new_distance(new_distance),
-        .comp_start(comp_start_signal),
+        .comp_start_signal(comp_start_signal),
         .pe_ready(pe_ready),
         .vector_x(vector_x),
         .vector_y(vector_y),
         .address_ref(address_ref),
         .address_search1(address_search1),
         .address_search2(address_search2),
-        .completed(process_completed)
+        .process_completed(process_completed)
     );
 
     pe_total pe_u(
@@ -47,7 +47,7 @@ module top_level (
 
     comparator comp_u(
         .clk(clk),
-        .comp_start(comp_start_signal),
+        .comp_start_signal(comp_start_signal),
         .accumulate_result(accumulate_result),
         .pe_ready(pe_ready),
         .vector_x(vector_x),
@@ -58,75 +58,71 @@ module top_level (
     );
 endmodule
 
-/* Module For Processing Element (PE) */
 module processing_element (
-    input clk,
-    input [7:0] ref_data, search_data1, search_data2,
-    input mux_control, new_distance,
-    output [7:0] accumulate_result, pipe_reg
+    input logic clk,
+    input logic [7:0] ref_data, search_data1, search_data2,
+    input logic mux_control, new_distance,
+    output logic [7:0] accumulate_result, pipe_reg
 );
-    reg [7:0] accumulate_reg, accumulate_in, diff, diff_temp;
-    reg carry;
+    logic [7:0] accumulate_reg, accumulate_in, diff, diff_temp;
+    logic carry;
 
-    always @(posedge clk) pipe_reg <= ref_data;
-    always @(posedge clk) accumulate_reg <= accumulate_in;
+    always_ff @(posedge clk) pipe_reg <= ref_data;
+    always_ff @(posedge clk) accumulate_reg <= accumulate_in;
 
-    always @(*) begin
+    always_comb begin
         diff = ref_data - (mux_control ? search_data1 : search_data2);
         diff_temp = -diff;
         if (diff < 0) diff = diff_temp;
         {carry, accumulate_in} = accumulate_reg + diff;
-        if (carry == 1) accumulate_in = 8'hFF; // saturated
+        if (carry == 1) accumulate_in = 8'hFF;
         if (new_distance == 1) accumulate_in = diff;
     end
     assign accumulate_result = accumulate_reg;
 endmodule
 
-/* Module For The Last Processing Element (PEend) */
 module processing_element_end (
-    input clk,
-    input [7:0] ref_data, search_data1, search_data2,
-    input mux_control, new_distance,
-    output [7:0] accumulate_result
+    input logic clk,
+    input logic [7:0] ref_data, search_data1, search_data2,
+    input logic mux_control, new_distance,
+    output logic [7:0] accumulate_result
 );
-    reg [7:0] accumulate_reg, accumulate_in, diff, diff_temp;
-    reg carry;
+    logic [7:0] accumulate_reg, accumulate_in, diff, diff_temp;
+    logic carry;
 
-    always @(posedge clk) accumulate_reg <= accumulate_in;
+    always_ff @(posedge clk) accumulate_reg <= accumulate_in;
 
-    always @(*) begin
+    always_comb begin
         diff = ref_data - (mux_control ? search_data1 : search_data2);
         diff_temp = -diff;
         if (diff < 0) diff = diff_temp;
         {carry, accumulate_in} = accumulate_reg + diff;
-        if (carry == 1) accumulate_in = 8'hFF; // saturated
+        if (carry == 1) accumulate_in = 8'hFF;
         if (new_distance == 1) accumulate_in = diff;
     end
     assign accumulate_result = accumulate_reg;
 endmodule
 
-/* Module For Control Unit */
 module control_unit (
-    input clk,
-    input start_signal,
-    output reg [15:0] mux_control, new_distance, pe_ready,
-    output reg comp_start_signal,
-    output reg [3:0] vector_x, vector_y,
-    output reg [7:0] address_ref,
-    output reg [9:0] address_search1, address_search2,
-    output reg process_completed
+    input logic clk,
+    input logic start_signal,
+    output logic [15:0] mux_control, new_distance, pe_ready,
+    output logic comp_start_signal,
+    output logic [3:0] vector_x, vector_y,
+    output logic [7:0] address_ref,
+    output logic [9:0] address_search1, address_search2,
+    output logic process_completed
 );
-    parameter total_count = 16 * (16 * 16) + 15; // 4111
-
-    reg [12:0] count, count_temp;
+    parameter total_count = 16 * (16 * 16) + 15;
+    logic [12:0] count, count_temp;
     integer i;
 
-    always @(posedge clk) begin
+    always_ff @(posedge clk) begin
         if (start_signal == 0) count <= 12'b0;
         else if (process_completed == 0) count <= count_temp;
     end
 
-    always @(*) begin
+    always_comb begin
         count_temp = count + 1'b1;
         for (i = 0; i < 16; i = i + 1) begin
             new_distance[i] = (count[7:0] == i);    
@@ -142,26 +138,25 @@ module control_unit (
         vector_x = count[3:0] - 8; 
         vector_y = count[11:8] - 9;
 
-        process_completed = (count[12:0] == total_count); // 4111
+        process_completed = (count == total_count);
     end
 endmodule
 
-/* Module For Comparator Unit */
 module comparator (
-    input clk,
-    input comp_start_signal,
-    input [127:0] accumulate_result,
-    input [15:0] pe_ready,
-    input [3:0] vector_x, vector_y,
-    output reg [7:0] best_distance,
-    output reg [3:0] motion_vector_x, motion_vector_y
+    input logic clk,
+    input logic comp_start_signal,
+    input logic [127:0] accumulate_result,
+    input logic [15:0] pe_ready,
+    input logic [3:0] vector_x, vector_y,
+    output logic [7:0] best_distance,
+    output logic [3:0] motion_vector_x, motion_vector_y
 );
-    reg [7:0] new_distance;
-    reg new_best;
+    logic [7:0] new_distance;
+    logic new_best;
     integer n;
 
-    always @(posedge clk) begin
-        if (comp_start_signal == 0) best_distance <= 8'hFF; // initialize to highest value
+    always_ff @(posedge clk) begin
+        if (comp_start_signal == 0) best_distance <= 8'hFF;
         else if (new_best == 1) begin
             best_distance <= new_distance;
             motion_vector_x <= vector_x;
@@ -169,7 +164,7 @@ module comparator (
         end
     end
 
-    always @(*) begin
+    always_comb begin
         new_distance = 8'hFF;
         for (n = 0; n <= 15; n = n + 1) begin
             if (pe_ready[n] == 1) begin
@@ -201,14 +196,13 @@ module comparator (
     end
 endmodule
 
-/* Module For Total 16 Processing Elements (PEtotal) */
 module pe_total (
-    input clk,
-    input [7:0] ref_data, search_data1, search_data2,
-    input [15:0] mux_control, new_distance,
-    output [127:0] accumulate_result
+    input logic clk,
+    input logic [7:0] ref_data, search_data1, search_data2,
+    input logic [15:0] mux_control, new_distance,
+    output logic [127:0] accumulate_result
 );
-    wire [7:0] pipe_reg0, pipe_reg1, pipe_reg2, pipe_reg3, pipe_reg4, pipe_reg5, pipe_reg6, pipe_reg7, pipe_reg8, pipe_reg9, pipe_reg10, pipe_reg11, pipe_reg12, pipe_reg13, pipe_reg14;
+    logic [7:0] pipe_reg0, pipe_reg1, pipe_reg2, pipe_reg3, pipe_reg4, pipe_reg5, pipe_reg6, pipe_reg7, pipe_reg8, pipe_reg9, pipe_reg10, pipe_reg11, pipe_reg12, pipe_reg13, pipe_reg14;
 
     processing_element pe0 (clk, ref_data, search_data1, search_data2, mux_control[0], new_distance[0], accumulate_result[7:0], pipe_reg0);
     processing_element pe1 (clk, pipe_reg0, search_data1, search_data2, mux_control[1], new_distance[1], accumulate_result[15:8], pipe_reg1);
@@ -228,26 +222,24 @@ module pe_total (
     processing_element_end pe15 (clk, pipe_reg14, search_data1, search_data2, mux_control[15], new_distance[15], accumulate_result[127:120]);
 endmodule
 
-/* Module For Reference Block (Memory) */
 module ref_memory (
-    input clk,
-    input [7:0] address_ref,
+    input logic clk,
+    input logic [7:0] address_ref,
     output logic [7:0] ref_data
 );
     logic [7:0] ref_memory_array[0:255];
 
-    always @(*) ref_data = ref_memory_array[address_ref];
+    always_ff @(posedge clk) ref_data = ref_memory_array[address_ref];
 endmodule
 
-/* Module For Search Block (Memory) */
 module search_memory (
-    input clk,
-    input [9:0] address_search1, address_search2,
+    input logic clk,
+    input logic [9:0] address_search1, address_search2,
     output logic [7:0] search_data1, search_data2
 );
     logic [7:0] search_memory_array[0:1023];
 
-    always @(*) begin
+    always_ff @(posedge clk) begin
         search_data1 = search_memory_array[address_search1];
         search_data2 = search_memory_array[address_search2];
     end
