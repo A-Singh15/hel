@@ -8,7 +8,7 @@
 `include "scoreboard.sv"
 `include "evaluation.sv"
 
-class test_environment;
+class environment;
     // Instances of Generator, Driver, Monitor, and Scoreboard
     generator   gen_inst;
     driver      drv_inst;
@@ -20,10 +20,10 @@ class test_environment;
     mailbox     gen_to_drv, drv_to_gen, mon_to_scb, drv_to_scb, mon_to_eval;
     
     // Virtual interface to the test
-    virtual     test_if virt_if;
+    virtual     if virt_if;
 
     // Constructor to initialize the environment with a virtual interface
-    function new(input virtual test_if virt_if);
+    function new(input virtual if virt_if);
         this.virt_if = virt_if;
     endfunction : new
 
@@ -64,7 +64,7 @@ class test_environment;
         join
     endtask : wrap_up
 
-endclass : test_environment
+endclass : environment
 
 
 class simulation_environment;
