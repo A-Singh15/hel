@@ -12,10 +12,10 @@ class environment;
     virtual consolidated_if virt_if;
 
     // Instances of Generator, Driver, Monitor, and Scoreboard
-    virtual generator gen_inst; // Declare generator as a virtual interface
-    virtual driver drv_inst; // Declare driver as a virtual interface
-    virtual monitor mon_inst; // Declare monitor as a virtual interface
-    virtual scoreboard scb_inst; // Declare scoreboard as a virtual interface
+    generator gen_inst; // Assuming generator is a class
+    driver drv_inst; // Assuming driver is a class
+    monitor mon_inst; // Assuming monitor is a class
+    scoreboard scb_inst; // Assuming scoreboard is a class
     coverage_evaluation eval_inst; // Assuming coverage_evaluation is a class
     
     // Mailboxes for communication between components
@@ -34,8 +34,12 @@ class environment;
         drv_to_scb = new();
         mon_to_eval = new();
 
-        // Instantiate the coverage evaluation class
-        eval_inst = new(virt_if, mon_to_eval);
+        // Create instances of the generator, driver, monitor, and scoreboard
+        gen_inst = new(gen_to_drv, drv_to_gen);
+        drv_inst = new(gen_to_drv, drv_to_gen, drv_to_scb, virt_if);
+        scb_inst = new(drv_to_scb, mon_to_scb);
+        mon_inst = new(mon_to_scb, virt_if);
+        eval_inst = new(virt_if, mon_to_eval); // Instantiate the coverage evaluation class
     endfunction : build
 
     // Task to run the environment by running all components
@@ -65,10 +69,10 @@ endclass : environment
 
 class simulation_environment;
     // Instances of Generator, Driver, Monitor, Scoreboard, and Analysis
-    virtual generator gen_inst; // Declare generator as a virtual interface
-    virtual driver drv_inst; // Declare driver as a virtual interface
-    virtual monitor mon_inst; // Declare monitor as a virtual interface
-    virtual scoreboard scb_inst; // Declare scoreboard as a virtual interface
+    generator gen_inst; // Assuming generator is a class
+    driver drv_inst; // Assuming driver is a class
+    monitor mon_inst; // Assuming monitor is a class
+    scoreboard scb_inst; // Assuming scoreboard is a class
     coverage_evaluation eval_inst; // Assuming coverage_evaluation is a class
 
     // Mailboxes for communication between components
@@ -87,6 +91,10 @@ class simulation_environment;
         gen_to_drv = new();
         mon_to_scb = new();
         mon_to_eval = new();
+        gen_inst = new(gen_to_drv, gen_done);
+        drv_inst = new(virt_mem_if, gen_to_drv);
+        mon_inst = new(virt_mem_if, mon_to_scb, mon_to_eval);
+        scb_inst = new(mon_to_scb);
         eval_inst = new(virt_mem_if, mon_to_eval);
     endfunction
 
@@ -125,3 +133,4 @@ class simulation_environment;
     endtask
 
 endclass : simulation_environment
+ 
