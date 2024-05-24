@@ -1,132 +1,137 @@
 
 `timescale 1ns/1ps
 
-class analysis;
+`include "transaction.sv"
+`include "generator.sv"
+`include "driver.sv"
+`include "monitor.sv"
+`include "scoreboard.sv"
+`include "evaluation.sv"
 
-  // Metric for evaluation
-  real evaluation_metric;
-
-  // Interface to memory
-  virtual analysis_interface memory_interface;
-
-  // Mailbox for receiving data from the monitor
-  mailbox monitor_to_analysis;
-
-  // Data object
-  DataObject data;
-      
-  // Group for measuring evaluation
-  covergroup analysis_group;
-    option.per_instance = 1;
+class test_environment;
+    // Instances of Generator, Driver, Monitor, and Scoreboard
+    generator   gen_inst;
+    driver      drv_inst;
+    monitor     mon_inst;
+    scoreboard  scb_inst;
+    analysis    eval_inst; // Instance of the analysis class
     
-    // Point for BestDist
-    best_distance: coverpoint data.best_distance; // Automatic bins
+    // Mailboxes for communication between components
+    mailbox     gen_to_drv, drv_to_gen, mon_to_scb, drv_to_scb, mon_to_eval;
+    
+    // Virtual interface to the test
+    virtual     test_if virt_if;
 
-    // Point for expected_motion_x with defined bins
-    expected_motion_x: coverpoint data.expected_motion_x {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
-    }
+    // Constructor to initialize the environment with a virtual interface
+    function new(input virtual test_if virt_if);
+        this.virt_if = virt_if;
+    endfunction : new
 
-    // Point for expected_motion_y with defined bins
-    expected_motion_y: coverpoint data.expected_motion_y {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
-    }
+    // Function to build the environment by creating instances and mailboxes
+    function void build();
+        gen_to_drv = new();
+        drv_to_gen = new();
+        mon_to_scb = new();
+        drv_to_scb = new();
+        mon_to_eval = new();
+        
+        gen_inst = new(gen_to_drv, drv_to_gen);
+        drv_inst = new(gen_to_drv, drv_to_gen, drv_to_scb, virt_if);
+        scb_inst = new(drv_to_scb, mon_to_scb);
+        mon_inst = new(mon_to_scb, virt_if);
+        eval_inst = new(virt_if, mon_to_eval); // Instantiate the analysis class
+    endfunction : build
 
-    // Point for actual_motion_x with defined bins
-    actual_motion_x: coverpoint data.actual_motion_x {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
-    }
+    // Task to run the environment by running all components
+    task run();
+        fork
+            gen_inst.run();
+            drv_inst.run();
+            mon_inst.run();
+            scb_inst.run();
+            eval_inst.sample_evaluation(); // Run the analysis task
+        join_none
+    endtask : run
 
-    // Point for actual_motion_y with defined bins
-    actual_motion_y: coverpoint data.actual_motion_y {
-      bins negative_values[] = {[-8:-1]}; // Negative range
-      bins zero_value  = {0};             // Zero
-      bins positive_values[] = {[1:7]};   // Positive range
-    }
-    cross_exp : cross expected_motion_x, expected_motion_y;
-    cross_act : cross actual_motion_x, actual_motion_y;
-  endgroup
-  
-  // Constructor for analysis class
-  function new(virtual analysis_interface memory_interface, mailbox monitor_to_analysis);
-    this.memory_interface = memory_interface;
-    this.monitor_to_analysis = monitor_to_analysis;
-    analysis_group = new();
-  endfunction
-   
-  // Task to sample evaluation continuously
-  task sample_evaluation();
-    begin
-      forever begin
-        monitor_to_analysis.get(data);       // Get data from the mailbox
-        analysis_group.sample();             // Sample the group
-        evaluation_metric = analysis_group.get_coverage(); // Update evaluation metric
-      end
-    end
-  endtask
-  
-endclass
+    // Task to wrap up the environment by wrapping up all components
+    task wrap_up();
+        fork
+            gen_inst.wrap_up();
+            drv_inst.wrap_up();
+            mon_inst.wrap_up();
+            scb_inst.wrap_up();
+            eval_inst.sample_evaluation(); // Ensure analysis completes
+        join
+    endtask : wrap_up
+
+endclass : test_environment
 
 
-`timescale 1ns/1ps
+class simulation_environment;
+    // Instances of Generator, Driver, Monitor, Scoreboard, and Analysis
+    generator gen_inst;
+    driver drv_inst;
+    monitor mon_inst;
+    scoreboard scb_inst;
+    analysis eval_inst;
+    
+    // Mailboxes for communication between components
+    mailbox gen_to_drv, mon_to_scb, mon_to_eval;
+    
+    // Events for synchronization
+    event gen_done;
+    event mon_done;
+    
+    // Virtual interface handle
+    virtual analysis_interface virt_mem_if;
 
-`define MEMORY_MAX 1024
-`define REFERENCE_MAX 256
-`define DATA_COUNT 1500
-`define DRIVER_INTERFACE memory_interface.analysis_driver.driver_cb
-`define MONITOR_INTERFACE memory_interface.analysis_monitor.monitor_cb
+    // Constructor to initialize the environment with a virtual interface
+    function new(virtual analysis_interface virt_mem_if);
+        this.virt_mem_if = virt_mem_if;
+        gen_to_drv = new();
+        mon_to_scb = new();
+        mon_to_eval = new();
+        gen_inst = new(gen_to_drv, gen_done);
+        drv_inst = new(virt_mem_if, gen_to_drv);
+        mon_inst = new(virt_mem_if, mon_to_scb, mon_to_eval);
+        scb_inst = new(mon_to_scb);
+        eval_inst = new(virt_mem_if, mon_to_eval);
+    endfunction
 
+    // Task to initialize default values before the test
+    task pre_test();
+        $display("========== [SIM_ENV] Initializing Driver ==========");
+        drv_inst.start();  // Initialize default values
+    endtask
 
-`timescale 1ns/1ps
+    // Task to run the main tasks of all components
+    task run_test();
+        fork
+            gen_inst.main();
+            drv_inst.main();
+            mon_inst.main();
+            scb_inst.main();
+            eval_inst.sample_evaluation();
+        join_any
+    endtask
 
-module assertions_module(
-    input clk, 
-    input start_signal, 
-    input [7:0] best_distance, 
-    input [3:0] motion_x, 
-    input [3:0] motion_y, 
-    input process_complete
-);
+    // Task to wait for completion and print the evaluation report
+    task post_test();
+        wait(gen_done.triggered);
+        wait(gen_inst.trans_count == drv_inst.num_transactions);
+        wait(gen_inst.trans_count == scb_inst.num_transactions);
+        $display (" Coverage Report = %0.2f %% 
+", eval_inst.evaluation_metric);  // Print evaluation report
+        scb_inst.summary();  // Print summary
+    endtask 
 
-  integer temp_motion_x, temp_motion_y;
+    // Task to run the complete test sequence
+    task run();
+        pre_test();
+        $display("========== [SIM_ENV] Pre-test done, Starting Test ==========");
+        run_test();
+        post_test();
+        $finish;
+    endtask
 
-  // Convert 4-bit signed motion vectors to 5-bit signed integers
-  always @(*) begin
-      if (motion_x >= 8)
-          temp_motion_x = motion_x - 16;
-      else
-          temp_motion_x = motion_x;
-
-      if (motion_y >= 8)
-          temp_motion_y = motion_y - 16;
-      else
-          temp_motion_y = motion_y;
-  end
-
-  always @(posedge clk) begin
-    // Check 1: 'process_complete' should not be high when 'start_signal' is high
-    start_complete_check: assert property (@(posedge clk) (start_signal -> !process_complete)) else
-      $error("Check failed: start_signal -> !process_complete at time %0t", $time);
-
-    // Check 2: 'process_complete' should be high when 'start_signal' is low
-    start_complete_check1: assert property (@(posedge clk) ((!start_signal && !$past(start_signal)) -> process_complete)) else
-      $error("Check failed: (!start_signal && !$past(start_signal)) -> process_complete at time %0t", $time);
-
-    // Check 3: 'best_distance' should always be within 0x00 to 0xFF
-    best_distance_check: assert property (@(posedge clk) disable iff (!start_signal)
-      ((best_distance >= 8'h00) && (best_distance <= 8'hFF))) else
-      $error("Check failed: best_distance out of range at time %0t", $time);
-
-    // Check 4: 'motion_x' and 'motion_y' should be valid motion vectors
-    motion_vectors_check: assert property (@(posedge clk) disable iff (!process_complete || !start_signal)
-      ((temp_motion_x >= -8) && (temp_motion_x <= 7) && (temp_motion_y >= -8) && (temp_motion_y <= 7))) else
-      $error("Check failed at time %0t: motion_x = %0d, motion_y = %0d", $time, temp_motion_x, temp_motion_y);
-  end
-
-endmodule
+endclass;
