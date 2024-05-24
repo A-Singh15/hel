@@ -1,4 +1,3 @@
-
 `timescale 1ns/1ps
 
 `include "interfaces.sv"
@@ -14,16 +13,16 @@ class environment;
     driver      drv_inst;
     monitor     mon_inst;
     scoreboard  scb_inst;
-    analysis    eval_inst; // Instance of the analysis class
+    coverage_evaluation eval_inst; // Instance of the coverage evaluation class
     
     // Mailboxes for communication between components
     mailbox     gen_to_drv, drv_to_gen, mon_to_scb, drv_to_scb, mon_to_eval;
     
     // Virtual interface to the test
-    virtual     if virt_if;
+    virtual consolidated_if virt_if;
 
     // Constructor to initialize the environment with a virtual interface
-    function new(input virtual if virt_if);
+    function new(input virtual consolidated_if virt_if);
         this.virt_if = virt_if;
     endfunction : new
 
@@ -39,7 +38,7 @@ class environment;
         drv_inst = new(gen_to_drv, drv_to_gen, drv_to_scb, virt_if);
         scb_inst = new(drv_to_scb, mon_to_scb);
         mon_inst = new(mon_to_scb, virt_if);
-        eval_inst = new(virt_if, mon_to_eval); // Instantiate the analysis class
+        eval_inst = new(virt_if, mon_to_eval); // Instantiate the coverage evaluation class
     endfunction : build
 
     // Task to run the environment by running all components
@@ -49,7 +48,7 @@ class environment;
             drv_inst.run();
             mon_inst.run();
             scb_inst.run();
-            eval_inst.sample_evaluation(); // Run the analysis task
+            eval_inst.evaluate_coverage(); // Run the coverage evaluation task
         join_none
     endtask : run
 
@@ -60,7 +59,7 @@ class environment;
             drv_inst.wrap_up();
             mon_inst.wrap_up();
             scb_inst.wrap_up();
-            eval_inst.sample_evaluation(); // Ensure analysis completes
+            eval_inst.evaluate_coverage(); // Ensure evaluation completes
         join
     endtask : wrap_up
 
@@ -73,7 +72,7 @@ class simulation_environment;
     driver drv_inst;
     monitor mon_inst;
     scoreboard scb_inst;
-    analysis eval_inst;
+    coverage_evaluation eval_inst;
     
     // Mailboxes for communication between components
     mailbox gen_to_drv, mon_to_scb, mon_to_eval;
@@ -83,10 +82,10 @@ class simulation_environment;
     event mon_done;
     
     // Virtual interface handle
-    virtual analysis_interface virt_mem_if;
+    virtual consolidated_if virt_mem_if;
 
     // Constructor to initialize the environment with a virtual interface
-    function new(virtual analysis_interface virt_mem_if);
+    function new(virtual consolidated_if virt_mem_if);
         this.virt_mem_if = virt_mem_if;
         gen_to_drv = new();
         mon_to_scb = new();
@@ -111,7 +110,7 @@ class simulation_environment;
             drv_inst.main();
             mon_inst.main();
             scb_inst.main();
-            eval_inst.sample_evaluation();
+            eval_inst.evaluate_coverage();
         join_any
     endtask
 
@@ -120,8 +119,7 @@ class simulation_environment;
         wait(gen_done.triggered);
         wait(gen_inst.trans_count == drv_inst.num_transactions);
         wait(gen_inst.trans_count == scb_inst.num_transactions);
-        $display (" Coverage Report = %0.2f %% 
-", eval_inst.evaluation_metric);  // Print evaluation report
+        $display (" Coverage Report = %0.2f %% ", eval_inst.coverage_metric);  // Print evaluation report
         scb_inst.summary();  // Print summary
     endtask 
 
@@ -134,4 +132,4 @@ class simulation_environment;
         $finish;
     endtask
 
-endclass;
+endclass : simulation_environment
