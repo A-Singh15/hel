@@ -78,10 +78,10 @@ class coverage_evaluation;
         }
 
         // Cross coverage for Expected Motion X and Y
-        cross expected_motion_cross: cross cp_expected_motion_x, cp_expected_motion_y;
+        cross cp_expected_motion: cross cp_expected_motion_x, cp_expected_motion_y;
 
         // Cross coverage for Actual Motion X and Y
-        cross actual_motion_cross: cross cp_actual_motion_x, cp_actual_motion_y;
+        cross cp_actual_motion: cross cp_actual_motion_x, cp_actual_motion_y;
     endgroup
 
     // Constructor to initialize the coverage class
@@ -106,7 +106,7 @@ endclass
 
 `define SMEM_MAX 1024
 `define RMEM_MAX 256
-`define TRANSACTION_COUNT 1
+`define TRANSACTION_COUNT 1500
 `define DRIV_IF memory_interface.ME_DRIVER.ME_driver_cb
 `define MON_IF memory_interface.ME_MONITOR.ME_monitor_cb
 
