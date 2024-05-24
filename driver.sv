@@ -6,16 +6,16 @@ class driver_class;
   int num_transactions = 0;
 
   // Virtual interface handle
-  virtual main_if test_if;
+  virtual consolidated_if test_if;
 
   // Transaction object
-  transaction_class trans_obj;
+  virtual transaction_class trans_obj;
 
   // Mailboxes for communication between generator, driver, and scoreboard
   mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox;
   
   // Constructor: Initializes mailboxes and virtual interface
-  function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox, virtual main_if test_if);
+  function new(mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox, virtual consolidated_if test_if);
     this.gen_to_drv_mbox = gen_to_drv_mbox;
     this.drv_to_gen_mbox = drv_to_gen_mbox;
     this.drv_to_scb_mbox = drv_to_scb_mbox;
@@ -36,7 +36,7 @@ class driver_class;
   // Run task: Continuously processes transactions from generator
   task run_driver();
     forever begin
-      transaction_class trans_data;
+      virtual transaction_class trans_data;
       @(posedge test_if.clk);
       gen_to_drv_mbox.get(trans_data);
       test_if.driver_cb.start       <= trans_data.start;
@@ -62,7 +62,7 @@ endclass : driver_class
 class generator_class;
 
   // Transaction object
-  rand transaction_class trans_obj;
+  rand virtual transaction_class trans_obj;
 
   // Number of transactions to be generated
   int trans_count = 4150;
@@ -104,7 +104,7 @@ class generator_class;
 
 endclass : generator_class
 
-class transaction_class;
+virtual class transaction_class;
 
   // Signals for transactions
   rand logic start;
