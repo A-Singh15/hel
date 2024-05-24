@@ -67,13 +67,13 @@ class data_observer;
             data.R_memory = mem_virt_if.R_mem; // Capture R memory state
             data.S_memory = mem_virt_if.S_mem; // Capture S memory state
             @(posedge mem_virt_if.MONITOR.clk);
-            data.exp_x_vector = mem_virt_if.ME_monitor_cb.Expected_motionX;
-            data.exp_y_vector = mem_virt_if.ME_monitor_cb.Expected_motionY;
-            wait(mem_virt_if.ME_monitor_cb.completed); // Wait for completion signal from DUT
+            data.exp_x_vector = mem_virt_if.monitor_cb.Expected_motionX;
+            data.exp_y_vector = mem_virt_if.monitor_cb.Expected_motionY;
+            wait(mem_virt_if.monitor_cb.completed); // Wait for completion signal from DUT
             $display("[OBSERVER_INFO] :: Process Completed");
-            data.best_dist = mem_virt_if.ME_monitor_cb.BestDist;
-            data.x_vector = mem_virt_if.ME_monitor_cb.motionX;
-            data.y_vector = mem_virt_if.ME_monitor_cb.motionY;
+            data.best_dist = mem_virt_if.monitor_cb.BestDist;
+            data.x_vector = mem_virt_if.monitor_cb.motionX;
+            data.y_vector = mem_virt_if.monitor_cb.motionY;
 
             // Adjust x_vector and y_vector for signed values
             if (data.x_vector >= 8)
