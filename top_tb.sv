@@ -1,6 +1,13 @@
 `timescale 1ns/1ps
 `include "interfaces.sv"
+`include "transaction_class.sv"
+`include "driver.sv"
+`include "monitor.sv"
+`include "generator.sv"
+`include "evaluation.sv"
+`include "environment.sv"
 `include "test.sv"
+
 
 module top_tb();
     bit clk;
