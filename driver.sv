@@ -9,7 +9,7 @@ class driver_class;
   virtual consolidated_if test_if;
 
   // Transaction object
-  virtual transaction_class trans_obj;
+  transaction_class trans_obj;
 
   // Mailboxes for communication between generator, driver, and scoreboard
   mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox;
@@ -36,7 +36,7 @@ class driver_class;
   // Run task: Continuously processes transactions from generator
   task run_driver();
     forever begin
-      virtual transaction_class trans_data;
+      transaction_class trans_data;
       @(posedge test_if.clk);
       gen_to_drv_mbox.get(trans_data);
       test_if.driver_cb.start       <= trans_data.start;
@@ -58,34 +58,3 @@ class driver_class;
   endtask : wrap_up_driver
 
 endclass : driver_class
-
-virtual class transaction_class;
-
-  // Signals for transactions
-  rand logic start;
-  rand logic [7:0] R, S1, S2;
-  logic completed;
-  logic [7:0] BestDist;
-  logic [3:0] motionX, motionY;
-  logic [7:8] AddressR;
-  logic [9:0] AddressS1, AddressS2;
-
-  // Display function for transaction details
-  function void display_trans(string name);
-    $display("**-------------------------------------------------------**");
-    $display("**   -----------   %s  ----------   **", name);
-    $display("**-------------------------------------------------------**");
-    $display("** Time        = %0d ns", $time);
-    $display("** R           = %0h, S1 = %0h, S2 = %0h", R, S1, S2);
-    $display("** start       = %0d", start);
-    $display("** completed   = %0d", completed);
-    $display("** AddressR    = %0h", AddressR);
-    $display("** AddressS1   = %0h", AddressS1);
-    $display("** AddressS2   = %0h", AddressS2);
-    $display("** BestDist    = %0h", BestDist);
-    $display("** motionX     = %0h", motionX);
-    $display("** motionY     = %0h", motionY);
-    $display("**-------------------------------------------------------**");
-  endfunction
-
-endclass : transaction_class
