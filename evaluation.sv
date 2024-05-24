@@ -78,10 +78,10 @@ class coverage_evaluation;
         }
 
         // Cross coverage for Expected Motion X and Y
-        cross cp_expected_motion: cross cp_expected_motion_x, cp_expected_motion_y;
+        cross cp_expected_motion_x_y: cp_expected_motion_x, cp_expected_motion_y;
 
         // Cross coverage for Actual Motion X and Y
-        cross cp_actual_motion: cross cp_actual_motion_x, cp_actual_motion_y;
+        cross cp_actual_motion_x_y: cp_actual_motion_x, cp_actual_motion_y;
     endgroup
 
     // Constructor to initialize the coverage class
