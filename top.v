@@ -1,294 +1,255 @@
 `timescale 1ns/1ps
 
-module top(
-    input logic clock,
-    input logic reset,
-    input logic start,
-    input logic [7:0] video_frame_data,
-    input logic [7:0] control_signals,
-    output logic [3:0] motionX,
-    output logic [3:0] motionY,
-    output logic [7:0] BestDist,
-    output logic completed,
-    output logic [7:0] AddressR,
-    output logic [9:0] AddressS1,
-    output logic [9:0] AddressS2,
-    output logic [7:0] R,
-    output logic [7:0] S1,
-    output logic [7:0] S2
+/* Module For Top Level Hierarchy */
+module top_level (
+    input logic clk,
+    input logic start_signal,
+    output logic [7:0] best_distance,
+    output logic [3:0] motion_vector_x,
+    output logic [3:0] motion_vector_y,
+    output logic process_completed,
+    output logic [7:0] address_ref,
+    output logic [9:0] address_search1,
+    output logic [9:0] address_search2,
+    input logic [7:0] ref_data,
+    input logic [7:0] search_data1,
+    input logic [7:0] search_data2
 );
+    wire [15:0] mux_control, new_distance, pe_ready;
+    wire comp_start_signal;
+    wire [3:0] vector_x, vector_y;
+    wire [127:0] accumulate_result;
+    wire [7:0] pipe_reg;
 
-    wire [7:0] R_wire, S1_wire, S2_wire;
-    wire [15:0] S1S2mux_wire, newDist_wire, PEready_wire;
-    wire CompStart_wire;
-    wire [3:0] VectorX_wire, VectorY_wire;
-    wire [127:0] Accumulate_wire;
-
-    control ctl_u(
-        .clock(clock),
-        .start(start),
-        .S1S2mux(S1S2mux_wire),
-        .newDist(newDist_wire),
-        .CompStart(CompStart_wire),
-        .PEready(PEready_wire),
-        .VectorX(VectorX_wire),
-        .VectorY(VectorY_wire),
-        .AddressR(AddressR),
-        .AddressS1(AddressS1),
-        .AddressS2(AddressS2),
-        .completed(completed)
+    control_unit ctrl_u(
+        .clk(clk),
+        .start(start_signal),
+        .mux_control(mux_control),
+        .new_distance(new_distance),
+        .comp_start(comp_start_signal),
+        .pe_ready(pe_ready),
+        .vector_x(vector_x),
+        .vector_y(vector_y),
+        .address_ref(address_ref),
+        .address_search1(address_search1),
+        .address_search2(address_search2),
+        .completed(process_completed)
     );
 
-    PEtotal pe_u(
-        .clock(clock),
-        .R(R_wire),
-        .S1(S1_wire),
-        .S2(S2_wire),
-        .S1S2mux(S1S2mux_wire),
-        .newDist(newDist_wire),
-        .Accumulate(Accumulate_wire)
+    pe_total pe_u(
+        .clk(clk),
+        .ref_data(ref_data),
+        .search_data1(search_data1),
+        .search_data2(search_data2),
+        .mux_control(mux_control),
+        .new_distance(new_distance),
+        .accumulate_result(accumulate_result)
     );
 
-    Comparator comp_u(
-        .clock(clock),
-        .CompStart(CompStart_wire),
-        .PEout(Accumulate_wire),
-        .PEready(PEready_wire),
-        .vectorX(VectorX_wire),
-        .vectorY(VectorY_wire),
-        .BestDist(BestDist),
-        .motionX(motionX),
-        .motionY(motionY)
+    comparator comp_u(
+        .clk(clk),
+        .comp_start(comp_start_signal),
+        .accumulate_result(accumulate_result),
+        .pe_ready(pe_ready),
+        .vector_x(vector_x),
+        .vector_y(vector_y),
+        .best_distance(best_distance),
+        .motion_vector_x(motion_vector_x),
+        .motion_vector_y(motion_vector_y)
     );
-
-    ROM_R memR_u (
-        .clock(clock),
-        .AddressR(AddressR),
-        .R(R_wire)
-    );
-
-    ROM_S memS_u (
-        .clock(clock),
-        .AddressS1(AddressS1),
-        .AddressS2(AddressS2),
-        .S1(S1_wire),
-        .S2(S2_wire)
-    );
-
-    assign R = R_wire;
-    assign S1 = S1_wire;
-    assign S2 = S2_wire;
-
 endmodule
 
-`timescale 1ns/1ps
-module PE (
-    input clock,
-    input [7:0] R, S1, S2,
-    input S1S2mux, newDist,
-    output [7:0] Accumulate,
-    output reg [7:0] Rpipe
+/* Module For Processing Element (PE) */
+module processing_element (
+    input clk,
+    input [7:0] ref_data, search_data1, search_data2,
+    input mux_control, new_distance,
+    output [7:0] accumulate_result, pipe_reg
 );
-    reg [7:0] AccumulateReg, AccumulateIn, difference, difference_temp;
-    reg Carry;
+    reg [7:0] accumulate_reg, accumulate_in, diff, diff_temp;
+    reg carry;
 
-    always @(posedge clock) Rpipe <= R;
-    always @(posedge clock) AccumulateReg <= AccumulateIn;
+    always @(posedge clk) pipe_reg <= ref_data;
+    always @(posedge clk) accumulate_reg <= accumulate_in;
 
-    always @(R or S1 or S2 or S1S2mux or newDist or AccumulateReg) begin
-        difference = R - (S1S2mux ? S1 : S2);
-        difference_temp = -difference;
-        if (difference < 0) difference = difference_temp;
-        {Carry, AccumulateIn} = AccumulateReg + difference;
-        if (Carry == 1) AccumulateIn = 8'hFF; // saturated
-        if (newDist == 1) AccumulateIn = difference;
+    always @(ref_data, search_data1, search_data2, mux_control, new_distance, accumulate_reg) begin
+        diff = ref_data - (mux_control ? search_data1 : search_data2);
+        diff_temp = -diff;
+        if (diff < 0) diff = diff_temp;
+        {carry, accumulate_in} = accumulate_reg + diff;
+        if (carry == 1) accumulate_in = 8'hFF; // saturated
+        if (new_distance == 1) accumulate_in = diff;
     end
-    assign Accumulate = AccumulateReg;
+    assign accumulate_result = accumulate_reg;
 endmodule
 
-`timescale 1ns/1ps
-module PEend (
-    input clock,
-    input [7:0] R, S1, S2,
-    input S1S2mux, newDist,
-    output [7:0] Accumulate
+/* Module For The Last Processing Element (PEend) */
+module processing_element_end (
+    input clk,
+    input [7:0] ref_data, search_data1, search_data2,
+    input mux_control, new_distance,
+    output [7:0] accumulate_result
 );
-    reg [7:0] AccumulateReg, AccumulateIn, difference, difference_temp;
-    reg Carry;
+    reg [7:0] accumulate_reg, accumulate_in, diff, diff_temp;
+    reg carry;
 
-    always @(posedge clock) AccumulateReg <= AccumulateIn;
+    always @(posedge clk) accumulate_reg <= accumulate_in;
 
-    always @(R or S1 or S2 or S1S2mux or newDist or AccumulateReg) begin
-        difference = R - (S1S2mux ? S1 : S2);
-        difference_temp = -difference;
-        if (difference < 0) difference = difference_temp;
-        {Carry, AccumulateIn} = AccumulateReg + difference;
-        if (Carry == 1) AccumulateIn = 8'hFF; // saturated
-        if (newDist == 1) AccumulateIn = difference;
+    always @(ref_data, search_data1, search_data2, mux_control, new_distance, accumulate_reg) begin
+        diff = ref_data - (mux_control ? search_data1 : search_data2);
+        diff_temp = -diff;
+        if (diff < 0) diff = diff_temp;
+        {carry, accumulate_in} = accumulate_reg + diff;
+        if (carry == 1) accumulate_in = 8'hFF; // saturated
+        if (new_distance == 1) accumulate_in = diff;
     end
-    assign Accumulate = AccumulateReg;
+    assign accumulate_result = accumulate_reg;
 endmodule
 
-`timescale 1ns/1ps
-module control (
-    input clock,
-    input start,
-    output reg [15:0] S1S2mux, newDist, PEready,
-    output reg CompStart,
-    output reg [3:0] VectorX, VectorY,
-    output reg [7:0] AddressR,
-    output reg [9:0] AddressS1, AddressS2,
-    output reg completed
+/* Module For Control Unit */
+module control_unit (
+    input clk,
+    input start_signal,
+    output reg [15:0] mux_control, new_distance, pe_ready,
+    output reg comp_start_signal,
+    output reg [3:0] vector_x, vector_y,
+    output reg [7:0] address_ref,
+    output reg [9:0] address_search1, address_search2,
+    output reg process_completed
 );
-    parameter count_complete = 16 * (16 * 16) + 15; // 4111
+    parameter total_count = 16 * (16 * 16) + 15; // 4111
 
     reg [12:0] count, count_temp;
     integer i;
-    reg [11:0] temp;
 
-    always @(posedge clock) begin
-        if (start == 0) count <= 12'b0;
-        else if (completed == 0) count <= count_temp;
+    always @(posedge clk) begin
+        if (start_signal == 0) count <= 12'b0;
+        else if (process_completed == 0) count <= count_temp;
     end
 
     always @(count) begin
         count_temp = count + 1'b1;
         for (i = 0; i < 16; i = i + 1) begin
-            newDist[i] = (count[7:0] == i);    
-            PEready[i] = (newDist[i] && !(count < 256));    
-            S1S2mux[i] = (count[3:0] >= i);
-            CompStart = (!(count < 256));
+            new_distance[i] = (count[7:0] == i);    
+            pe_ready[i] = (new_distance[i] && !(count < 256));    
+            mux_control[i] = (count[3:0] >= i);
+            comp_start_signal = (!(count < 256));
         end
 
-        AddressR = count[7:0];
-        AddressS1 = (count[11:8] + count[7:4]) * 32 + count[3:0];
-        temp = count[11:0] - 16;
-        AddressS2 = (temp[11:8] + temp[7:4]) * 32 + temp[3:0] + 16;
+        address_ref = count[7:0];
+        address_search1 = (count[11:8] + count[7:4]) * 32 + count[3:0];
+        address_search2 = ((count[11:0] - 16) * 32 + (count[11:0] - 16) + 16);
 
-        VectorX = count[3:0] - 8; 
-        VectorY = count[11:8] - 9;
+        vector_x = count[3:0] - 8; 
+        vector_y = count[11:8] - 9;
 
-        completed = (count[12:0] == count_complete); // 4111
+        process_completed = (count[12:0] == total_count); // 4111
     end
 endmodule
 
-`timescale 1ns/1ps
-module Comparator (
-    input clock,
-    input CompStart,
-    input [127:0] PEout,
-    input [15:0] PEready,
-    input [3:0] vectorX, vectorY,
-    output reg [7:0] BestDist,
-    output reg [3:0] motionX, motionY
+/* Module For Comparator Unit */
+module comparator (
+    input clk,
+    input comp_start_signal,
+    input [127:0] accumulate_result,
+    input [15:0] pe_ready,
+    input [3:0] vector_x, vector_y,
+    output reg [7:0] best_distance,
+    output reg [3:0] motion_vector_x, motion_vector_y
 );
-    reg [7:0] newDist;
-    reg newBest;
+    reg [7:0] new_distance;
+    reg new_best;
     integer n;
 
-    always @(posedge clock) begin
-        if (CompStart == 0) BestDist <= 8'hFF; // initialize to highest value
-        else if (newBest == 1) begin
-            BestDist <= newDist;
-            motionX <= vectorX;
-            motionY <= vectorY;
+    always @(posedge clk) begin
+        if (comp_start_signal == 0) best_distance <= 8'hFF; // initialize to highest value
+        else if (new_best == 1) begin
+            best_distance <= new_distance;
+            motion_vector_x <= vector_x;
+            motion_vector_y <= vector_y;
         end
     end
 
-    always @(BestDist or PEout or PEready or CompStart) begin
-        newDist = 8'hFF;
+    always @(best_distance, accumulate_result, pe_ready, comp_start_signal) begin
+        new_distance = 8'hFF;
         for (n = 0; n <= 15; n = n + 1) begin
-            if (PEready[n] == 1) begin
+            if (pe_ready[n] == 1) begin
                 case (n)
-                    4'b0000: newDist = PEout[7:0];
-                    4'b0001: newDist = PEout[15:8]; 
-                    4'b0010: newDist = PEout[23:16]; 
-                    4'b0011: newDist = PEout[31:24];
-                    4'b0100: newDist = PEout[39:32]; 
-                    4'b0101: newDist = PEout[47:40]; 
-                    4'b0110: newDist = PEout[55:48]; 
-                    4'b0111: newDist = PEout[63:56]; 
-                    4'b1000: newDist = PEout[71:64]; 
-                    4'b1001: newDist = PEout[79:72]; 
-                    4'b1010: newDist = PEout[87:80]; 
-                    4'b1011: newDist = PEout[95:88]; 
-                    4'b1100: newDist = PEout[103:96]; 
-                    4'b1101: newDist = PEout[111:104]; 
-                    4'b1110: newDist = PEout[119:112]; 
-                     4'b1111: newDist = PEout[127:120];
-                    default: newDist = 8'hFF;  
+                    4'b0000: new_distance = accumulate_result[7:0];
+                    4'b0001: new_distance = accumulate_result[15:8]; 
+                    4'b0010: new_distance = accumulate_result[23:16]; 
+                    4'b0011: new_distance = accumulate_result[31:24];
+                    4'b0100: new_distance = accumulate_result[39:32]; 
+                    4'b0101: new_distance = accumulate_result[47:40]; 
+                    4'b0110: new_distance = accumulate_result[55:48]; 
+                    4'b0111: new_distance = accumulate_result[63:56]; 
+                    4'b1000: new_distance = accumulate_result[71:64]; 
+                    4'b1001: new_distance = accumulate_result[79:72]; 
+                    4'b1010: new_distance = accumulate_result[87:80]; 
+                    4'b1011: new_distance = accumulate_result[95:88]; 
+                    4'b1100: new_distance = accumulate_result[103:96]; 
+                    4'b1101: new_distance = accumulate_result[111:104]; 
+                    4'b1110: new_distance = accumulate_result[119:112]; 
+                    4'b1111: new_distance = accumulate_result[127:120];
+                    default: new_distance = 8'hFF;  
                 endcase
             end
         end
 
-        if ((|PEready == 0) || (CompStart == 0)) newBest = 0;
-        else if (newDist < BestDist) newBest = 1;
-        else newBest = 0;
+        if ((|pe_ready == 0) || (comp_start_signal == 0)) new_best = 0;
+        else if (new_distance < best_distance) new_best = 1;
+        else new_best = 0;
     end
 endmodule
 
-`timescale 1ns/1ps
-module PEtotal (
-    input clock,
-    input [7:0] R, S1, S2,
-    input [15:0] S1S2mux, newDist,
-    output [127:0] Accumulate
+/* Module For Total 16 Processing Elements (PEtotal) */
+module pe_total (
+    input clk,
+    input [7:0] ref_data, search_data1, search_data2,
+    input [15:0] mux_control, new_distance,
+    output [127:0] accumulate_result
 );
-    wire [7:0] Rpipe0, Rpipe1, Rpipe2, Rpipe3, Rpipe4, Rpipe5, Rpipe6, Rpipe7, Rpipe8, Rpipe9, Rpipe10, Rpipe11, Rpipe12, Rpipe13, Rpipe14;
+    wire [7:0] pipe_reg0, pipe_reg1, pipe_reg2, pipe_reg3, pipe_reg4, pipe_reg5, pipe_reg6, pipe_reg7, pipe_reg8, pipe_reg9, pipe_reg10, pipe_reg11, pipe_reg12, pipe_reg13, pipe_reg14;
 
-    PE pe0 (clock, R, S1, S2, S1S2mux[0], newDist[0], Accumulate[7:0], Rpipe0);
-    PE pe1 (clock, Rpipe0, S1, S2, S1S2mux[1], newDist[1], Accumulate[15:8], Rpipe1);
-    PE pe2 (clock, Rpipe1, S1, S2, S1S2mux[2], newDist[2], Accumulate[23:16], Rpipe2);
-    PE pe3 (clock, Rpipe2, S1, S2, S1S2mux[3], newDist[3], Accumulate[31:24], Rpipe3);
-    PE pe4 (clock, Rpipe3, S1, S2, S1S2mux[4], newDist[4], Accumulate[39:32], Rpipe4);
-    PE pe5 (clock, Rpipe4, S1, S2, S1S2mux[5], newDist[5], Accumulate[47:40], Rpipe5);
-    PE pe6 (clock, Rpipe5, S1, S2, S1S2mux[6], newDist[6], Accumulate[55:48], Rpipe6);
-    PE pe7 (clock, Rpipe6, S1, S2, S1S2mux[7], newDist[7], Accumulate[63:56], Rpipe7);
-    PE pe8 (clock, Rpipe7, S1, S2, S1S2mux[8], newDist[8], Accumulate[71:64], Rpipe8);
-    PE pe9 (clock, Rpipe8, S1, S2, S1S2mux[9], newDist[9], Accumulate[79:72], Rpipe9);
-    PE pe10 (clock, Rpipe9, S1, S2, S1S2mux[10], newDist[10], Accumulate[87:80], Rpipe10);
-    PE pe11 (clock, Rpipe10, S1, S2, S1S2mux[11], newDist[11], Accumulate[95:88], Rpipe11);
-    PE pe12 (clock, Rpipe11, S1, S2, S1S2mux[12], newDist[12], Accumulate[103:96], Rpipe12);
-    PE pe13 (clock, Rpipe12, S1, S2, S1S2mux[13], newDist[13], Accumulate[111:104], Rpipe13);
-    PE pe14 (clock, Rpipe13, S1, S2, S1S2mux[14], newDist[14], Accumulate[119:112], Rpipe14);
-    PEend pe15 (clock, Rpipe14, S1, S2, S1S2mux[15], newDist[15], Accumulate[127:120]);
+    processing_element pe0 (clk, ref_data, search_data1, search_data2, mux_control[0], new_distance[0], accumulate_result[7:0], pipe_reg0);
+    processing_element pe1 (clk, pipe_reg0, search_data1, search_data2, mux_control[1], new_distance[1], accumulate_result[15:8], pipe_reg1);
+    processing_element pe2 (clk, pipe_reg1, search_data1, search_data2, mux_control[2], new_distance[2], accumulate_result[23:16], pipe_reg2);
+    processing_element pe3 (clk, pipe_reg2, search_data1, search_data2, mux_control[3], new_distance[3], accumulate_result[31:24], pipe_reg3);
+    processing_element pe4 (clk, pipe_reg3, search_data1, search_data2, mux_control[4], new_distance[4], accumulate_result[39:32], pipe_reg4);
+    processing_element pe5 (clk, pipe_reg4, search_data1, search_data2, mux_control[5], new_distance[5], accumulate_result[47:40], pipe_reg5);
+    processing_element pe6 (clk, pipe_reg5, search_data1, search_data2, mux_control[6], new_distance[6], accumulate_result[55:48], pipe_reg6);
+    processing_element pe7 (clk, pipe_reg6, search_data1, search_data2, mux_control[7], new_distance[7], accumulate_result[63:56], pipe_reg7);
+    processing_element pe8 (clk, pipe_reg7, search_data1, search_data2, mux_control[8], new_distance[8], accumulate_result[71:64], pipe_reg8);
+    processing_element pe9 (clk, pipe_reg8, search_data1, search_data2, mux_control[9], new_distance[9], accumulate_result[79:72], pipe_reg9);
+    processing_element pe10 (clk, pipe_reg9, search_data1, search_data2, mux_control[10], new_distance[10], accumulate_result[87:80], pipe_reg10);
+    processing_element pe11 (clk, pipe_reg10, search_data1, search_data2, mux_control[11], new_distance[11], accumulate_result[95:88], pipe_reg11);
+    processing_element pe12 (clk, pipe_reg11, search_data1, search_data2, mux_control[12], new_distance[12], accumulate_result[103:96], pipe_reg12);
+    processing_element pe13 (clk, pipe_reg12, search_data1, search_data2, mux_control[13], new_distance[13], accumulate_result[111:104], pipe_reg13);
+    processing_element pe14 (clk, pipe_reg13, search_data1, search_data2, mux_control[14], new_distance[14], accumulate_result[119:112], pipe_reg14);
+    processing_element_end pe15 (clk, pipe_reg14, search_data1, search_data2, mux_control[15], new_distance[15], accumulate_result[127:120]);
 endmodule
 
-`timescale 1ns/1ps
-module ROM_R (
-    input clock,
-    input [7:0] AddressR,
-    output logic [7:0] R
+/* Module For Reference Block (Memory) */
+module ref_memory (
+    input clk,
+    input [7:0] address_ref,
+    output logic [7:0] ref_data
 );
-    logic [7:0] Rreg;
-    logic [7:0] Rmem[0:255];
+    logic [7:0] ref_memory_array[0:255];
 
-    always @(*) Rreg = Rmem[AddressR];
-    assign R = Rreg;
+    always @(*) ref_data = ref_memory_array[address_ref];
 endmodule
 
-`timescale 1ns/1ps
-module ROM_S (
-    input clock,
-    input [9:0] AddressS1, AddressS2,
-    output logic [7:0] S1, S2
+/* Module For Search Block (Memory) */
+module search_memory (
+    input clk,
+    input [9:0] address_search1, address_search2,
+    output logic [7:0] search_data1, search_data2
 );
-    logic [7:0] S1reg, S2reg;
-    logic [7:0] Smem[0:1023];
+    logic [7:0] search_memory_array[0:1023];
 
     always @(*) begin
-        S1reg = Smem[AddressS1];
-        S2reg = Smem[AddressS2];
+        search_data1 = search_memory_array[address_search1];
+        search_data2 = search_memory_array[address_search2];
     end
-    assign S1 = S1reg;
-    assign S2 = S2reg;
 endmodule
-"""
-
-# Create a zip file with the final structure
-zip_file_path_final = "/mnt/data/final_project_with_timescale.zip"
-with zipfile.ZipFile(zip_file_path_final, 'w') as zipf:
-    for filename, content in final_files.items():
-        zipf.writestr(filename, content)
-
-zip_file_path_final
