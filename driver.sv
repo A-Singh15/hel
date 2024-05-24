@@ -9,7 +9,7 @@ class driver_class;
   virtual ME_interface test_if;
 
   // Transaction object
-  transaction trans_obj;
+  transaction_class trans_obj;
 
   // Mailboxes for communication between generator, driver, and scoreboard
   mailbox gen_to_drv_mbox, drv_to_gen_mbox, drv_to_scb_mbox;
@@ -36,7 +36,7 @@ class driver_class;
   // Run task: Continuously processes transactions from generator
   task run_driver();
     forever begin
-      transaction trans_data;
+      transaction_class trans_data;
       @(posedge test_if.clk);
       gen_to_drv_mbox.get(trans_data);
       test_if.driver_cb.start       <= trans_data.start;
@@ -62,7 +62,7 @@ endclass : driver_class
 class generator_class;
 
   // Transaction object
-  rand transaction trans_obj;
+  rand transaction_class trans_obj;
 
   // Number of transactions to be generated
   int trans_count = 4150;
@@ -104,7 +104,7 @@ class generator_class;
 
 endclass : generator_class
 
-class transaction;
+class transaction_class;
 
   // Signals for transactions
   rand logic start;
@@ -133,5 +133,5 @@ class transaction;
     $display("**-------------------------------------------------------**");
   endfunction
 
-endclass : transaction
+endclass : transaction_class
 
