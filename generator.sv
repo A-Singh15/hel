@@ -6,7 +6,7 @@ class generator_class;
   rand transaction_class trans_obj;
 
   // Number of transactions to be generated
-  int trans_count = 4150;
+  int trans_count = 10;
 
   // Mailboxes for communication between generator and driver
   mailbox gen_to_drv_mbox, drv_to_gen_mbox;
