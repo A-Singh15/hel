@@ -34,7 +34,7 @@ endclass : transaction_class
 class generator_class;
 
   // Transaction object
-  rand virtual transaction_class trans_obj;
+  rand transaction_class trans_obj;
 
   // Number of transactions to be generated
   int trans_count = 4150;
