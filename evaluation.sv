@@ -12,38 +12,38 @@ class coverage_evaluation;
   mailbox monitor_to_coverage;
 
   // Transaction object
-  DataObject transaction;
+  transaction trans;
 
   // Covergroup for measuring coverage
   covergroup coverage_group;
     option.per_instance = 1;
 
     // Coverpoint for BestDist
-    best_distance: coverpoint transaction.best_distance; // Automatic bins
+    best_distance: coverpoint trans.BestDist; // Automatic bins
 
     // Coverpoint for Expected_motionX with specified bins
-    expected_motion_x: coverpoint transaction.expected_motion_x {
+    expected_motion_x: coverpoint trans.Expected_motionX {
       bins negative_values[] = {[-8:-1]}; // Negative values
       bins zero_value = {0};       // Zero value
       bins positive_values[] = {[1:7]};   // Positive values
     }
 
     // Coverpoint for Expected_motionY with specified bins
-    expected_motion_y: coverpoint transaction.expected_motion_y {
+    expected_motion_y: coverpoint trans.Expected_motionY {
       bins negative_values[] = {[-8:-1]}; // Negative values
       bins zero_value = {0};       // Zero value
       bins positive_values[] = {[1:7]};   // Positive values
     }
 
     // Coverpoint for Actual_motionX with specified bins
-    actual_motion_x: coverpoint transaction.motion_x {
+    actual_motion_x: coverpoint trans.motionX {
       bins negative_values[] = {[-8:-1]}; // Negative values
       bins zero_value = {0};       // Zero value
       bins positive_values[] = {[1:7]};   // Positive values
     }
 
     // Coverpoint for Actual_motionY with specified bins
-    actual_motion_y: coverpoint transaction.motion_y {
+    actual_motion_y: coverpoint trans.motionY {
       bins negative_values[] = {[-8:-1]}; // Negative values
       bins zero_value = {0};       // Zero value
       bins positive_values[] = {[1:7]};   // Positive values
@@ -63,7 +63,7 @@ class coverage_evaluation;
   task evaluate_coverage();
     begin
       forever begin
-        monitor_to_coverage.get(transaction);        // Get a transaction from the mailbox
+        monitor_to_coverage.get(trans);        // Get a transaction from the mailbox
         coverage_group.sample();    // Sample the covergroup
         coverage_metric = coverage_group.get_coverage(); // Update coverage metric
       end
