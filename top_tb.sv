@@ -8,11 +8,25 @@ module top_testbench();
   bit clk;
   always #10 clk = ~clk;  // Clock Generation
 
+  // Variable Declarations
+  reg start_signal;
+  wire [7:0] best_distance;
+  wire [3:0] motion_vector_x, motion_vector_y;
+  reg [7:0] ref_mem_array [0:255];
+  reg [7:0] search_mem_array [0:1023];
+  integer expected_motion_x, expected_motion_y;
+  integer i, j;
+  integer signed x, y;
+  wire [7:0] ref_data, search_data1, search_data2;
+  wire [7:0] address_ref;
+  wire [9:0] address_search1, address_search2;
+  wire process_completed;
+
   initial begin
     $display("***** Simulation Start *****");
-    main_intf.start_signal = 1'b0;
+    start_signal = 1'b0;
     repeat(2) @(posedge clk);
-    main_intf.start_signal = 1'b1;
+    start_signal = 1'b1;
   end
 
   // Interface Instantiation
@@ -23,8 +37,8 @@ module top_testbench();
   search_memory search_mem_inst(.clk(clk), .address_search1(main_intf.address_search1), .address_search2(main_intf.address_search2), .search_data1(main_intf.search_data1), .search_data2(main_intf.search_data2));
 
   // Assign Memory Arrays
-  assign ref_mem_inst.ref_memory_array = main_intf.ref_mem_array;
-  assign search_mem_inst.search_memory_array = main_intf.search_mem_array;
+  assign ref_mem_inst.ref_memory_array = ref_mem_array;  // Corrected assignment
+  assign search_mem_inst.search_memory_array = search_mem_array;  // Corrected assignment
 
   // Testbench Instance
   testbench motion_estimator_tb(main_intf);
