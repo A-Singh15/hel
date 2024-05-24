@@ -1,10 +1,33 @@
 `timescale 1ns/1ps
 
+// Define the data_packet class
+class data_packet;
+    // Define the fields as per your requirements
+    logic [7:0] distance;
+    logic [3:0] x_motion;
+    logic [3:0] y_motion;
+    logic is_complete;
+    logic [7:0] addr_R;
+    logic [9:0] addr_S1;
+    logic [9:0] addr_S2;
+    logic [7:0] R_memory;
+    logic [7:0] S_memory;
+    integer exp_x_vector;
+    integer exp_y_vector;
+    logic [7:0] best_dist;
+    logic [3:0] x_vector;
+    logic [3:0] y_vector;
+
+    // Constructor
+    function new();
+    endfunction
+endclass
+
 class observer;
 
     // Virtual interface handle
     virtual consolidated_if virt_if;
-    virtual data_packet packet;
+    data_packet packet;
     mailbox observer_to_scorer;
 
     // Constructor to initialize the observer with a mailbox and virtual interface
