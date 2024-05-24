@@ -1,15 +1,14 @@
-
 `timescale 1ns/1ps
 
 class observer;
 
     // Virtual interface handle
-    virtual main_if.test virt_if;
-    data_packet packet;
+    virtual consolidated_if virt_if;
+    virtual data_packet packet;
     mailbox observer_to_scorer;
 
     // Constructor to initialize the observer with a mailbox and virtual interface
-    function new(mailbox observer_to_scorer, input virtual main_if.test virt_if);
+    function new(mailbox observer_to_scorer, input virtual consolidated_if virt_if);
         this.observer_to_scorer = observer_to_scorer;
         this.virt_if = virt_if;
         packet = new();
@@ -20,13 +19,13 @@ class observer;
         forever begin
             data_packet pkt = new();
             @(posedge virt_if.clk);
-            pkt.distance = virt_if.cb.distance_value;  
-            pkt.x_motion = virt_if.cb.x_motion; 
-            pkt.y_motion = virt_if.cb.y_motion; 
-            pkt.is_complete = virt_if.cb.complete_signal; 
-            pkt.addr_R = virt_if.cb.addr_R; 
-            pkt.addr_S1 = virt_if.cb.addr_S1;
-            pkt.addr_S2 = virt_if.cb.addr_S2;
+            pkt.distance = virt_if.driver_cb.BestDist;  
+            pkt.x_motion = virt_if.driver_cb.motionX; 
+            pkt.y_motion = virt_if.driver_cb.motionY; 
+            pkt.is_complete = virt_if.driver_cb.completed; 
+            pkt.addr_R = virt_if.driver_cb.AddressR; 
+            pkt.addr_S1 = virt_if.driver_cb.AddressS1;
+            pkt.addr_S2 = virt_if.driver_cb.AddressS2;
             observer_to_scorer.put(pkt);
         end
     endtask : monitor_task
@@ -44,14 +43,14 @@ class data_observer;
     int i;
 
     // Virtual interface handle
-    virtual mem_est_if mem_virt_if;
+    virtual consolidated_if mem_virt_if;
     
     // Mailbox handles for communication with scorer and evaluator
     mailbox observer_to_scorer;
     mailbox observer_to_evaluator;
     
     // Constructor to initialize the data observer with a virtual interface and mailboxes
-    function new(virtual mem_est_if mem_virt_if, mailbox observer_to_scorer, mailbox observer_to_evaluator);
+    function new(virtual consolidated_if mem_virt_if, mailbox observer_to_scorer, mailbox observer_to_evaluator);
         this.mem_virt_if = mem_virt_if;
         this.observer_to_scorer = observer_to_scorer;
         this.observer_to_evaluator = observer_to_evaluator;
@@ -59,23 +58,22 @@ class data_observer;
     
     // Main task to monitor DUT activity, capture data, and communicate with scorer and evaluator
     task main_task;
-        $display("============= Data Observer Main Task =============
-");
+        $display("============= Data Observer Main Task =============");
         forever begin
             data_packet data, eval_data;
             data = new();
-            wait(mem_virt_if.start_signal == 1); // Wait for start signal from DUT
+            wait(mem_virt_if.start == 1); // Wait for start signal from DUT
             @(posedge mem_virt_if.MONITOR.clk);
-            data.R_memory = mem_virt_if.R_mem_data; // Capture R memory state
-            data.S_memory = mem_virt_if.S_mem_data; // Capture S memory state
+            data.R_memory = mem_virt_if.R_mem; // Capture R memory state
+            data.S_memory = mem_virt_if.S_mem; // Capture S memory state
             @(posedge mem_virt_if.MONITOR.clk);
-            data.exp_x_vector = `MONITOR_INTERFACE.exp_x_vector;
-            data.exp_y_vector = `MONITOR_INTERFACE.exp_y_vector;
-            wait(`MONITOR_INTERFACE.comp_signal); // Wait for completion signal from DUT
+            data.exp_x_vector = mem_virt_if.ME_monitor_cb.Expected_motionX;
+            data.exp_y_vector = mem_virt_if.ME_monitor_cb.Expected_motionY;
+            wait(mem_virt_if.ME_monitor_cb.completed); // Wait for completion signal from DUT
             $display("[OBSERVER_INFO] :: Process Completed");
-            data.best_dist = `MONITOR_INTERFACE.best_distance;
-            data.x_vector = `MONITOR_INTERFACE.x_vector;
-            data.y_vector = `MONITOR_INTERFACE.y_vector;
+            data.best_dist = mem_virt_if.ME_monitor_cb.BestDist;
+            data.x_vector = mem_virt_if.ME_monitor_cb.motionX;
+            data.y_vector = mem_virt_if.ME_monitor_cb.motionY;
 
             // Adjust x_vector and y_vector for signed values
             if (data.x_vector >= 8)
@@ -86,7 +84,7 @@ class data_observer;
             $display("[OBSERVER_INFO] :: DUT Output Packet x_vector: %d and y_vector: %d", data.x_vector, data.y_vector);
 
             // Copy data for evaluator
-            eval_data = new data; 
+            eval_data = new data_packet(data); 
             
             // Send data to scorer and evaluator
             observer_to_scorer.put(data); 
