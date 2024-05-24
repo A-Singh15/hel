@@ -81,6 +81,7 @@ module top(
 
 endmodule
 
+`timescale 1ns/1ps
 module PE (
     input clock,
     input [7:0] R, S1, S2,
@@ -105,6 +106,7 @@ module PE (
     assign Accumulate = AccumulateReg;
 endmodule
 
+`timescale 1ns/1ps
 module PEend (
     input clock,
     input [7:0] R, S1, S2,
@@ -127,6 +129,7 @@ module PEend (
     assign Accumulate = AccumulateReg;
 endmodule
 
+`timescale 1ns/1ps
 module control (
     input clock,
     input start,
@@ -169,6 +172,7 @@ module control (
     end
 endmodule
 
+`timescale 1ns/1ps
 module Comparator (
     input clock,
     input CompStart,
@@ -211,7 +215,7 @@ module Comparator (
                     4'b1100: newDist = PEout[103:96]; 
                     4'b1101: newDist = PEout[111:104]; 
                     4'b1110: newDist = PEout[119:112]; 
-                    4'b1111: newDist = PEout[127:120];
+                     4'b1111: newDist = PEout[127:120];
                     default: newDist = 8'hFF;  
                 endcase
             end
@@ -223,6 +227,7 @@ module Comparator (
     end
 endmodule
 
+`timescale 1ns/1ps
 module PEtotal (
     input clock,
     input [7:0] R, S1, S2,
@@ -249,6 +254,7 @@ module PEtotal (
     PEend pe15 (clock, Rpipe14, S1, S2, S1S2mux[15], newDist[15], Accumulate[127:120]);
 endmodule
 
+`timescale 1ns/1ps
 module ROM_R (
     input clock,
     input [7:0] AddressR,
@@ -261,6 +267,7 @@ module ROM_R (
     assign R = Rreg;
 endmodule
 
+`timescale 1ns/1ps
 module ROM_S (
     input clock,
     input [9:0] AddressS1, AddressS2,
@@ -276,3 +283,12 @@ module ROM_S (
     assign S1 = S1reg;
     assign S2 = S2reg;
 endmodule
+"""
+
+# Create a zip file with the final structure
+zip_file_path_final = "/mnt/data/final_project_with_timescale.zip"
+with zipfile.ZipFile(zip_file_path_final, 'w') as zipf:
+    for filename, content in final_files.items():
+        zipf.writestr(filename, content)
+
+zip_file_path_final
