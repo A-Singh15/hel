@@ -1,5 +1,8 @@
 `timescale 1ns/1ps
 
+`ifndef EVALUATION_SV
+`define EVALUATION_SV
+
 class transaction;
     rand logic start;
     rand logic [7:0] R, S1, S2;
@@ -154,3 +157,5 @@ module ME_assertions(
     end
 
 endmodule
+
+`endif // EVALUATION_SV
