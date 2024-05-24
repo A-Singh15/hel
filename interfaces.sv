@@ -1,5 +1,8 @@
 `timescale 1ns/1ps
 
+`ifndef CONSOLIDATED_IF
+`define CONSOLIDATED_IF
+
 interface consolidated_if(input bit clk);
     // Interface signals
     logic start;
@@ -34,3 +37,5 @@ interface consolidated_if(input bit clk);
     modport MONITOR (clocking monitor_cb, input clk, start);
 
 endinterface : consolidated_if
+
+`endif // CONSOLIDATED_IF
