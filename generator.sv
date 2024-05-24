@@ -28,9 +28,81 @@ class transaction_obj;
 endclass : transaction_obj
 
 
+class transaction_data;
+    // Memory arrays for reference and search data
+    logic [7:0] ref_memory[`RMEM_MAX-1:0];
+    rand logic [7:0] search_memory[`SMEM_MAX-1:0];
+
+    // Motion vectors and best distance metrics
+    rand integer expected_motion_x;
+    rand integer expected_motion_y;
+    integer motion_x;
+    integer motion_y;
+    logic [7:0] best_distance;
+
+    // Random index for introducing mismatches
+    rand int rand_mismatch_index;
+  
+    // Constraints for expected motion vectors
+    constraint motion_vector_constraints { 
+        expected_motion_x dist {[-8:0]:=10, [1:7]:=10};
+        expected_motion_y dist {[-8:0]:=10, [1:7]:=10};
+    };
+
+    // Constraints for mismatch index distribution
+    constraint mismatch_index_constraints {
+        soft rand_mismatch_index dist {[0:255] := 10, [256:511] := 10, [512:767] := 10}; 
+    };
+
+    // Constraints for search memory values
+    constraint search_memory_constraints {
+        foreach(search_memory[i]) search_memory[i] inside {[0:`SMEM_MAX-1]};
+    };
+
+    // Display function to output transaction details
+    function void display();
+        $display("================================================= [TRANSACTION_INFO] :: Search Memory Generated =================================================");
+        for (int j = 0; j < `SMEM_MAX; j++) begin
+            if (j % 32 == 0) $display("  ");
+            $write("%h  ", search_memory[j]);
+            if (j == 1023) $display("  ");
+        end
+
+        $display("================================================= [TRANSACTION_INFO] :: Reference Memory Generated =================================================");
+        for (int j = 0; j < `RMEM_MAX; j++) begin
+            if (j % 16 == 0) $display("  ");
+            $write("%h ", ref_memory[j]);
+            if (j == 255) $display("  ");
+        end
+
+        $display("\n[TRANSACTION_INFO] :: Random Mismatch Index : %0d", rand_mismatch_index);     
+        $display("[TRANSACTION_INFO] :: Expected Motion X : %0d", expected_motion_x);
+        $display("[TRANSACTION_INFO] :: Expected Motion Y : %0d", expected_motion_y);
+    endfunction
+
+    // Function to generate reference memory based on search memory and motion vectors
+    function void generate_ref_memory();
+        foreach (ref_memory[i]) begin
+            // Generate a full match by default
+            ref_memory[i] = search_memory[32 * 8 + 8 + (((i / 16) + expected_motion_y) * 32) + ((i % 16) + expected_motion_x)];
+      
+            // Introduce a partial match at the random mismatch index
+            if (i == rand_mismatch_index)   
+                ref_memory[i] = $urandom_range(0, 255);
+        end
+
+        // Shuffle ref_memory to create no match if rand_mismatch_index is above a threshold
+        if (rand_mismatch_index >= 400) begin
+            ref_memory.shuffle();
+        end
+    endfunction
+endclass : transaction_data
+
+
 class generator_class;
     // Declaring transaction class 
     rand transaction_obj trans_obj;
+    rand transaction_data trans_data;
     // Repeat count to specify the number of items to generate
     int trans_count = 4150;
     // Mailboxes to generate and send the packet to driver
@@ -47,8 +119,9 @@ class generator_class;
 
     // Run task: Generates the specified number of transaction packets and puts them into the mailbox
     task run();
-        for(int i = 0; i < trans_count; i++) begin
+        for (int i = 0; i < trans_count; i++) begin
             trans_obj = new();
+            trans_data = new();
             if (i < 10) begin
                 if (!trans_obj.randomize() with {start_signal == 0;}) 
                     $fatal("Generator:: Transaction randomization failed");
@@ -60,6 +133,9 @@ class generator_class;
                 if (!trans_obj.randomize() with {start_signal == 0;}) 
                     $fatal("Generator:: Transaction randomization failed");
             end 
+            if (!trans_data.randomize()) $fatal("Generator:: Data randomization failed");
+            trans_data.generate_ref_memory(); // Generate reference memory from search memory
+            trans_data.display();
             gen_to_drv_mbox.put(trans_obj);
         end
         -> gen_end_event; // Triggering indicates the end of generation
@@ -69,41 +145,3 @@ class generator_class;
         // Empty for now
     endtask : wrap_up
 endclass : generator_class
-
-
-`timescale 1ns/1ps
-
-class generator_class;
-
-    // Transaction class handle
-    rand transaction_obj trans_obj;
-
-    // Number of transactions to generate (set to 1 for single transaction)
-    int num_trans = 1;
-
-    // Mailbox handle for communication with driver
-    mailbox gen_to_drv_mbox;
-
-    // Event to signal end of generation
-    event end_event;
-
-    // Constructor: Initializes mailbox and event handles
-    function new(mailbox gen_to_drv_mbox, event end_event);
-        this.gen_to_drv_mbox = gen_to_drv_mbox;
-        this.end_event = end_event;
-    endfunction
-
-    // Main task: Generates transactions and sends them to the driver
-    task main();
-        $display("***** [GEN_INFO]: Generator Main Task Started *****");
-        repeat (num_trans) begin
-            trans_obj = new();
-            if (!trans_obj.randomize()) 
-                $fatal("[GEN_ERROR] :: Randomization failed"); // Randomize Transaction class
-            trans_obj.generate_ref_mem(); // Generate reference memory from search memory
-            trans_obj.display();
-            gen_to_drv_mbox.put(trans_obj); // Put transaction packet into mailbox
-        end
-        -> end_event; // Signal that generation is ended
-    endtask
-endclass
