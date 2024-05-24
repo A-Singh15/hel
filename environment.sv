@@ -1,7 +1,8 @@
 
 `timescale 1ns/1ps
 
-`include "transaction.sv"
+`include "test.sv"
+`include "interfaces.sv"
 `include "generator.sv"
 `include "driver.sv"
 `include "monitor.sv"
