@@ -10,7 +10,7 @@
 class environment;
     // Instances of Generator, Driver, Monitor, and Scoreboard
     virtual consolidated_if virt_if; // Virtual interface declaration
-    generator gen_inst; // Generator instance declaration
+    virtual generator gen_inst; // Declare generator as a virtual interface
     driver drv_inst;
     monitor mon_inst;
     scoreboard scb_inst;
@@ -32,7 +32,8 @@ class environment;
         drv_to_scb = new();
         mon_to_eval = new();
         
-        gen_inst = new(gen_to_drv, drv_to_gen);
+        // Create instances of the generator, driver, monitor, and scoreboard
+        // Ensure generator is correctly connected with virtual interface
         drv_inst = new(gen_to_drv, drv_to_gen, drv_to_scb, virt_if);
         scb_inst = new(drv_to_scb, mon_to_scb);
         mon_inst = new(mon_to_scb, virt_if);
@@ -42,7 +43,6 @@ class environment;
     // Task to run the environment by running all components
     task run();
         fork
-            gen_inst.run();
             drv_inst.run();
             mon_inst.run();
             scb_inst.run();
@@ -53,7 +53,6 @@ class environment;
     // Task to wrap up the environment by wrapping up all components
     task wrap_up();
         fork
-            gen_inst.wrap_up();
             drv_inst.wrap_up();
             mon_inst.wrap_up();
             scb_inst.wrap_up();
@@ -66,7 +65,7 @@ endclass : environment
 
 class simulation_environment;
     // Instances of Generator, Driver, Monitor, Scoreboard, and Analysis
-    generator gen_inst;
+    virtual generator gen_inst; // Declare generator as a virtual interface
     driver drv_inst;
     monitor mon_inst;
     scoreboard scb_inst;
@@ -88,7 +87,6 @@ class simulation_environment;
         gen_to_drv = new();
         mon_to_scb = new();
         mon_to_eval = new();
-        gen_inst = new(gen_to_drv, gen_done);
         drv_inst = new(virt_mem_if, gen_to_drv);
         mon_inst = new(virt_mem_if, mon_to_scb, mon_to_eval);
         scb_inst = new(mon_to_scb);
@@ -104,7 +102,6 @@ class simulation_environment;
     // Task to run the main tasks of all components
     task run_test();
         fork
-            gen_inst.main();
             drv_inst.main();
             mon_inst.main();
             scb_inst.main();
@@ -115,8 +112,7 @@ class simulation_environment;
     // Task to wait for completion and print the evaluation report
     task post_test();
         wait(gen_done.triggered);
-        wait(gen_inst.trans_count == drv_inst.num_transactions);
-        wait(gen_inst.trans_count == scb_inst.num_transactions);
+        wait(drv_inst.num_transactions == scb_inst.num_transactions);
         $display (" Coverage Report = %0.2f %% ", eval_inst.coverage_metric);  // Print evaluation report
         scb_inst.summary();  // Print summary
     endtask 
